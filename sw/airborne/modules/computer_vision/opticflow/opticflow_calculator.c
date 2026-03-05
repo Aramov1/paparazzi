@@ -704,7 +704,15 @@ bool calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct image_t *img,
     result->flow_x = 0;
     result->flow_y = 0;
 
-    free(vectors);
+    // free(vectors);
+    // image_switch(&opticflow->img_gray, &opticflow->prev_img_gray);  // commented out for obstacle_avoider
+    // return false;
+
+    // For obstacle_avoider
+    if (result->flow_vectors != NULL) free(result->flow_vectors);
+    result->flow_vectors = vectors;
+    result->flow_vector_count = 0;
+    result->subpixel_factor = opticflow->subpixel_factor;
     image_switch(&opticflow->img_gray, &opticflow->prev_img_gray);
     return false;
   } else if (result->tracked_cnt % 2) {
@@ -821,7 +829,19 @@ bool calc_fast9_lukas_kanade(struct opticflow_t *opticflow, struct image_t *img,
       opticflow->fast9_ret_corners[i].count = vectors[i].pos.count;
     }
   }
-  free(vectors);
+  // free(vectors);
+  // image_switch(&opticflow->img_gray, &opticflow->prev_img_gray); //Commented out for obstacle_avoider
+  // return true;
+
+  // For obstacle_avoider: Transfer ownership of vectors to result instead of freeing
+  if (result->flow_vectors != NULL) {
+    free(result->flow_vectors);
+  }
+  result->flow_vectors = vectors;
+  result->flow_vector_count = result->tracked_cnt;
+  result->subpixel_factor = opticflow->subpixel_factor;
+  // do NOT free(vectors) here anymore
+
   image_switch(&opticflow->img_gray, &opticflow->prev_img_gray);
   return true;
 }

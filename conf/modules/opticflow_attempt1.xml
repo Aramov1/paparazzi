@@ -1,0 +1,23 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="opticflow_attempt1" dir="computer_vision">
+  <doc>
+    <description>Obstacle avoidance via Optic Flow (TUDelft Structure)</description>
+  </doc>
+  <header>
+    <file name="opticflow_attempt1.h"/>
+  </header>
+  <init fun="opticflow_module_init()"/>
+  <periodic fun="opticflow_module_run()" freq="20" autorun="TRUE"/>
+  
+  <makefile target="ap|nps">
+    <file name="opticflow_attempt1.c" dir="modules/computer_vision"/>
+    <file name="opticflow_calculator.c" dir="modules/computer_vision/opticflow"/>
+    
+    <file name="image.c" dir="modules/computer_vision/lib/vision"/>
+    <file name="lucas_kanade.c" dir="modules/computer_vision/lib/vision"/>
+    
+    <define name="USE_VIDEO_THREAD"/>
+    <flag name="LDFLAGS" value="-lpthread"/>
+  </makefile>
+</module>

@@ -114,3 +114,21 @@ float get_size_divergence(struct flow_t *vectors, int count, int n_samples)
   // return the calculated mean divergence:
   return divs_sum / used_samples;
 }
+
+
+// Returns divergence for flow vectors whose origin x is within [x_min, x_max]
+float get_divergence_region(struct flow_t *vectors, int count, 
+                             int n_samples, int x_min, int x_max,
+                             int subpixel_factor)
+{
+    struct flow_t filtered[count];  // VLA, or use a fixed max size
+    int filtered_count = 0;
+    
+    for (int i = 0; i < count; i++) {
+        int px = vectors[i].pos.x / subpixel_factor;
+        if (px >= x_min && px <= x_max) {
+            filtered[filtered_count++] = vectors[i];
+        }
+    }
+    return get_size_divergence(filtered, filtered_count, n_samples);
+}

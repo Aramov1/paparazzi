@@ -25,7 +25,7 @@
 #include "autopilot_static.h"
 #include <stdio.h>
 
-#define NAV_C // needed to get the nav functions like Inside...
+//#define NAV_C // needed to get the nav functions like Inside...
 #include "generated/flight_plan.h"
 
 #define PRINT(string, ...) fprintf(stderr, "[mav_exercise->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
@@ -64,9 +64,35 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
   color_count = quality;
 }
 
+// ABI Binding for Optical Flow
+#ifndef OPTICFLOW_ABI_ID
+#define OPTICFLOW_ABI_ID ABI_BROADCAST
+#endif
+
+static abi_event opticflow_ev;
+float my_flow_x = 0;
+float my_flow_y = 0;
+float current_divergence = 0.0f;
+float DIVERGENCE_THRESHOLD = 0.3f;
+
+// The Callback Function
+static void opticflow_cb(uint8_t sender_id, uint32_t stamp, 
+                         float flow_x, float flow_y, 
+                         float flow_der_x, float flow_der_y, 
+                         float noise, float div_size) {
+  // Store the data you need
+  my_flow_x = flow_x;
+  my_flow_y = flow_y;
+  current_divergence = div_size;
+  
+  // Optional: Print for debugging
+  //PRINT("Received OF: x=%f, y=%f\n", flow_x, flow_y);
+}
+
 void mav_exercise_init(void) {
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
+  AbiBindMsgOPTICAL_FLOW(OPTICFLOW_ABI_ID, &opticflow_ev, opticflow_cb);
 }
 
 void mav_exercise_periodic(void) {
@@ -94,6 +120,11 @@ void mav_exercise_periodic(void) {
   switch (navigation_state) {
     case SAFE:
       moveWaypointForward(WP_TRAJECTORY, 1.5f * moveDistance);
+      if (current_divergence > DIVERGENCE_THRESHOLD) {
+        PRINT("DIVERGENCE TOO HIGH: %f! Switching to OBSTACLE_FOUND\n", current_divergence);
+        navigation_state = OBSTACLE_FOUND;
+        break; // Exit the case early
+      }
       if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
         navigation_state = OUT_OF_BOUNDS;
       } else if (obstacle_free_confidence == 0) {

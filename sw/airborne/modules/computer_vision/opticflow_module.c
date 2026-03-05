@@ -67,7 +67,7 @@ PRINT_CONFIG_VAR(OPTICFLOW_FPS_CAMERA2)
 
 /* The main opticflow variables */
 struct opticflow_t opticflow[ACTIVE_CAMERAS];                         ///< Opticflow calculations
-static struct opticflow_result_t opticflow_result[ACTIVE_CAMERAS];    ///< The opticflow result
+struct opticflow_result_t opticflow_result[ACTIVE_CAMERAS];    ///< The opticflow result
 
 static bool opticflow_got_result[ACTIVE_CAMERAS];       ///< When we have an optical flow calculation
 static pthread_mutex_t opticflow_mutex;                  ///< Mutex lock fo thread safety
@@ -155,6 +155,13 @@ void opticflow_module_run(void)
                                     -1.0f //opticflow_result.noise_measurement // negative value disables filter updates with OF-based vertical velocity.
                                    );
       }
+
+      // // Added for obstacle_avoider
+      // if (idx_camera == 0) {  // change index if your front camera is camera2
+      //   obstacle_avoider_run(&opticflow_result[idx_camera], 
+      //                          opticflow[idx_camera].camera->sensor_size.w);
+      // }
+      // // --- END ADD ---
       opticflow_got_result[idx_camera] = false;
     }
   }

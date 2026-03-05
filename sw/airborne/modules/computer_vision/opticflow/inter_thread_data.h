@@ -55,6 +55,11 @@ struct opticflow_result_t {
   uint8_t camera_id;      ///< Camera id as passed to cv_add_to_device
 
   float noise_measurement;  ///< noise of measurement, for state filter
+
+  // additions for obstacle_avoider
+  struct flow_t *flow_vectors;    ///< Raw flow vectors from last frame (owned by this struct)
+  uint16_t flow_vector_count;     ///< Number of valid entries in flow_vectors
+  uint16_t subpixel_factor;       ///< Subpixel factor used when computing flow_vectors
 };
 
 #endif
