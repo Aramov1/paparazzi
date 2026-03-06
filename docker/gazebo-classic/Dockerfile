@@ -57,9 +57,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # X11 / GUI
     x11-apps \
     dbus-x11 \
+    libcanberra-gtk-module \
     libcanberra-gtk3-module \
     # Joystick
     joystick \
+    jstest-gtk \
     libsdl2-dev \
     # Audio (PulseAudio client only — server runs on host)
     libpulse0 \

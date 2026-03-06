@@ -99,6 +99,11 @@ if [ -z "$DISABLE_JOYSTICK" ]; then
         for ev in /dev/input/event*; do
             [ -e "$ev" ] && INPUT_OPTS+=(--device="$ev")
         done
+        # Pass host input group GID so container user can read the devices
+        INPUT_GID=$(getent group input 2>/dev/null | cut -d: -f3)
+        [ -n "$INPUT_GID" ] && INPUT_OPTS+=(--group-add="$INPUT_GID") && echo "[Input] Added input group (GID $INPUT_GID)"
+        # Allow access to all input devices (major 13), including those plugged in after container start
+        INPUT_OPTS+=(--device-cgroup-rule='c 13:* rmw')
     fi
 fi
 
