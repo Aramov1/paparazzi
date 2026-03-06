@@ -43,6 +43,8 @@
 
   <makefile target="ap|nps">
     <file name="video_capture.c"/>
+    <configure name="VIDEO_CAPTURE_PATH" default="/home/pprz/paparazzi/tmp/images"/>
+    <define name="VIDEO_CAPTURE_PATH" value="$(VIDEO_CAPTURE_PATH)"/>
   </makefile>
 
 </module>

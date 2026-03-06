@@ -67,7 +67,7 @@ PRINT_CONFIG_VAR(OPTICFLOW_FPS_CAMERA2)
 
 /* The main opticflow variables */
 struct opticflow_t opticflow[ACTIVE_CAMERAS];                         ///< Opticflow calculations
-static struct opticflow_result_t opticflow_result[ACTIVE_CAMERAS];    ///< The opticflow result
+struct opticflow_result_t opticflow_result[ACTIVE_CAMERAS];    ///< The opticflow result
 
 static bool opticflow_got_result[ACTIVE_CAMERAS];       ///< When we have an optical flow calculation
 static pthread_mutex_t opticflow_mutex;                  ///< Mutex lock fo thread safety

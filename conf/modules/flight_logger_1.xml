@@ -1,0 +1,24 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="flight_logger_1" dir="mav_course_exercise/loggers" task="core">
+  <doc>
+	<description>
+      Logs to a csv file.
+      (only for linux)
+    </description>
+    <define name="LOGGER_FILE_PATH" value="/temp/logs" description="path where csv file is saved."/>
+    <configure name="LOGGER_FILE_FREQUENCY" value="PERIODIC_FREQUENCY" description="frequency of logging, defaults to PERIODIC_FREQUENCY."/>
+  </doc>
+  <header>
+	<file name="flight_logger_1.h"/>
+  </header>
+  <init fun="flight_logger_1_init()"/>
+  <periodic fun="flight_logger_1_periodic()" autorun="TRUE" freq="LOGGER_FILE_FREQUENCY"/>
+  <makefile>
+    <file name="flight_logger_1.c"/>
+    <configure name="LOGGER_FILE_FREQUENCY" default="PERIODIC_FREQUENCY"/>
+    <define name="LOGGER_FILE_FREQUENCY" value="$(LOGGER_FILE_FREQUENCY)"/>
+    <configure name="LOGGER_FILE_PATH" default="/home/pprz/paparazzi/tmp/logs"/>
+    <define name="LOGGER_FILE_PATH" value="$(LOGGER_FILE_PATH)"/>
+  </makefile>
+</module>

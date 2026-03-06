@@ -1,0 +1,78 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="orange_no_gps" dir="mav_course_exercise/no_gps_Mattias">
+  <doc>
+    <description>
+This module is an example module for the course AE4317 Autonomous Flight of Micro Air Vehicles at the TU Delft.
+This module is used in combination with a color filter (cv_detect_color_object) and the guided mode of the autopilot.
+This variant is designed for non-GPS operation and does not call GPS APIs.
+The avoidance strategy is to simply count the total number of orange pixels. When above a certain percentage threshold,
+(given by color_count_frac) we assume that there is an obstacle and we turn.
+
+The color filter settings are set using the cv_detect_color_object. This module can run multiple filters simultaneously
+so you have to define which filter to use with the ORANGE_AVOIDER_VISUAL_DETECTION_ID setting.
+This module differs from the simpler orange_avoider.xml in that this is flown in guided mode. This flight mode is
+less dependent on a global positioning estimate as with the navigation mode. This module can be used with a simple
+speed estimate rather than a global position.
+
+Here we also need to use our onboard sensors to stay inside of the cyberzoo and not collide with the nets. For this
+we employ a simple color detector, similar to the orange poles but for green to detect the floor. When the total amount
+of green drops below a given threshold (given by floor_count_frac) we assume we are near the edge of the zoo and turn
+around. The color detection is done by the cv_detect_color_object module, use the FLOOR_VISUAL_DETECTION_ID setting to 
+define which filter to use.
+    </description>
+    <define name="ORANGE_AVOIDER_VISUAL_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to recieve for orange pole detection."/>
+    <define name="FLOOR_VISUAL_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to recieve for floor detection."/>
+  </doc>
+  <settings>
+    <dl_settings>
+      <dl_settings name="OrangeNoGps">
+         <dl_setting var="ong_color_count_frac" min="0" step="0.01" max="0.5"/>
+         <dl_setting var="ong_floor_count_frac" min="0" step="0.01" max="0.5"/>
+         <dl_setting var="ong_max_speed" min="0" step="0.1" max="1"/>
+         <dl_setting var="ong_max_horiz_speed" min="0.2" step="0.1" max="3.0"/>
+         <dl_setting var="ong_speed_kp" min="0.0" step="0.1" max="2.0"/>
+         <dl_setting var="ong_cmd_accel_limit" min="0.1" step="0.1" max="3.0"/>
+         <dl_setting var="ong_max_side_speed" min="0.0" step="0.05" max="1.0"/>
+         <dl_setting var="ong_floor_center_gain" min="0.0" step="0.1" max="3.0"/>
+         <dl_setting var="ong_edge_ok_ratio" min="0.50" step="0.02" max="0.98"/>
+         <dl_setting var="ong_edge_warn_ratio" min="0.30" step="0.02" max="0.90"/>
+         <dl_setting var="ong_edge_escape_ratio" min="0.10" step="0.02" max="0.80"/>
+         <dl_setting var="ong_edge_recover_ratio" min="0.40" step="0.02" max="0.98"/>
+         <dl_setting var="ong_edge_angle_measure_ratio" min="0.50" step="0.02" max="0.98"/>
+         <dl_setting var="ong_edge_full_mat_ratio" min="0.70" step="0.02" max="1.00"/>
+         <dl_setting var="ong_edge_full_mat_conf_required" min="1" step="1" max="10"/>
+         <dl_setting var="ong_edge_warn_speed" min="0.0" step="0.05" max="1.0"/>
+         <dl_setting var="ong_edge_escape_turn_rate" min="5" step="5" max="120" unit="rad" alt_unit="deg"/>
+         <dl_setting var="ong_edge_align_centroid_x" min="0.02" step="0.02" max="0.80"/>
+         <dl_setting var="ong_edge_escape_min_turn_time" min="0.0" step="0.05" max="2.0"/>
+         <dl_setting var="ong_edge_escape_max_turn_time" min="0.2" step="0.1" max="5.0"/>
+         <dl_setting var="ong_edge_recover_angle_deg" min="0" step="5" max="120"/>
+         <dl_setting var="ong_edge_recover_max_angle_deg" min="45" step="5" max="180"/>
+         <dl_setting var="ong_edge_recover_forward_speed" min="0.0" step="0.05" max="1.0"/>
+         <dl_setting var="ong_edge_recover_forward_time" min="0.0" step="0.1" max="3.0"/>
+         <dl_setting var="ong_edge_turn_sign" min="-1" step="2" max="1"/>
+         <dl_setting var="ong_edge_warn_conf_required" min="1" step="1" max="10"/>
+         <dl_setting var="ong_edge_recover_conf_required" min="1" step="1" max="10"/>
+         <dl_setting var="ong_heading_rate" min="0" step="5" max="45" unit="rad" alt_unit="deg"/>
+         <dl_setting var="ong_min_takeoff_alt" min="0.1" step="0.05" max="2.0"/>
+         <dl_setting var="ong_takeoff_target_alt" min="0.2" step="0.05" max="2.0"/>
+         <dl_setting var="ong_takeoff_brake_margin" min="0.05" step="0.05" max="1.0"/>
+         <dl_setting var="ong_takeoff_hover_time" min="0.1" step="0.1" max="5.0"/>
+         <dl_setting var="ong_takeoff_max_horiz_speed" min="0.05" step="0.05" max="2.0"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
+  
+  <dep>
+    <depends>cv_detect_color_object</depends>
+  </dep>
+  <header>
+    <file name="orange_no_gps.h"/>
+  </header>
+  <init fun="orange_no_gps_init()"/>
+  <periodic fun="orange_no_gps_periodic()" freq="4"/>
+  <makefile target="ap|nps">
+    <file name="orange_no_gps.c"/>
+  </makefile>
+</module>

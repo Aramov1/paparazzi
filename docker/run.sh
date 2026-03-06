@@ -90,7 +90,7 @@ if [ -z "$DISABLE_USB" ]; then
     # docker should support relative symlinks for --device options since 1.12
     if [ "$DOCKER_VERSION" -ge 112 ]; then
        # find on OSX doesn't have the -printf option... so use exec echo instead
-        USB_OPTS=$(find /dev -maxdepth 2 \( -name "ttyACM?" -or -name "ttyUSB?" -or -name "bmp-*" -or -path /dev/paparazzi/* \) -exec echo -n "--device={} " \; 2> /dev/null)
+        USB_OPTS=$(find /dev -maxdepth 2 \( -name "ttyACM?" -or -name "ttyUSB?" -or -name "bmp-*" -or -path /dev/paparazzi/* -or -path /dev/input/js* \) -exec echo -n "--device={} " \; 2> /dev/null)
     else
         USB_OPTS=$(find /dev -maxdepth 1 \( -name "ttyACM?" -or -name "ttyUSB?" \) -exec echo -n "--device={} " \; 2> /dev/null)
     fi

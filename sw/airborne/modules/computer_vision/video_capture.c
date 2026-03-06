@@ -40,7 +40,7 @@
 #endif
 
 #ifndef VIDEO_CAPTURE_PATH
-#define VIDEO_CAPTURE_PATH /data/video/images
+#define VIDEO_CAPTURE_PATH /home/pprz/paparazzi/tmp/images
 #endif
 
 #ifndef VIDEO_CAPTURE_JPEG_QUALITY
