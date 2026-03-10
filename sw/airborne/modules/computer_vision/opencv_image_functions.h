@@ -28,8 +28,8 @@
 
 #ifndef OPENCV_IMAGE_FUNCTIONS_H
 #define OPENCV_IMAGE_FUNCTIONS_H
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 
 /**
  * Converts cv::Mat with three channels to a YUV422 image.

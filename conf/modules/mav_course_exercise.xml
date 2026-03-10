@@ -3,9 +3,18 @@
 <module name="mav_course_exercise">
   <doc>
     <description>
-    Exercise module for Autonomous Flight of MAV Course
+Module for the MAV course exercise.
     </description>
   </doc>
-  <depends>cv_detect_color_object</depends>
-  <!-- TODO Specify header, init, periodic, makefile sections  -->
+
+  <header>
+    <file name="mav_exercise.h"/>
+  </header>
+
+  <init fun="mav_course_exercise_init()"/>
+  <periodic fun="mav_course_exercise_periodic()" freq="4"/>
+
+  <makefile target="ap|nps">
+    <file name="mav_exercise.c"/>
+  </makefile>
 </module>

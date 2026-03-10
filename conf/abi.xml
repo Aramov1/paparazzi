@@ -274,7 +274,13 @@
       <field name="actuators_t4_in_ptr" type="struct ActuatorsT4In *">Pointer pointing at the actuators_t4_in struct</field>
       <field name="actuators_t4_extra_data_in_ptr" type="float *">Pointer pointing at the actuators_t4_extra_data_in array</field>
     </message>
-
+<!--<message name="TREE_POSITION" id="250">
+  \\<field name="dx" type="float"/>
+  <field name="dy" type="float"/>
+  <field name="dz" type="float"/>
+  <field name="detected" type="uint8_t"/>
+</message>
+-->
   </msg_class>
 
 </protocol>

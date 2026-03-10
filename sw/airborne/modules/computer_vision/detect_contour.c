@@ -36,6 +36,7 @@ PRINT_CONFIG_VAR(DETECT_CONTOUR_FPS)
 struct image_t *contour_func(struct image_t *img, uint8_t camera_id);
 struct image_t *contour_func(struct image_t *img, uint8_t camera_id)
 {
+  printf("contour_func called, type=%d, w=%d, h=%d\n", img->type, img->w, img->h);
 
   if (img->type == IMAGE_YUV422) {
     // Call OpenCV (C++ from paparazzi C function)

@@ -25,7 +25,6 @@
 #include "autopilot_static.h"
 #include <stdio.h>
 
-#define NAV_C // needed to get the nav functions like Inside...
 #include "generated/flight_plan.h"
 
 #define PRINT(string, ...) fprintf(stderr, "[mav_exercise->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
@@ -64,12 +63,12 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
   color_count = quality;
 }
 
-void mav_exercise_init(void) {
+void mav_course_exercise_init(void) {
   // bind our colorfilter callbacks to receive the color filter outputs
   AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
 }
 
-void mav_exercise_periodic(void) {
+void mav_course_exercise_periodic(void) {
   // only evaluate our state machine if we are flying
   if (!autopilot_in_flight()) {
     return;

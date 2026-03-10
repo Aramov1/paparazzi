@@ -59,6 +59,8 @@ extern "C" {
   <makefile target="ap">
     <file name="cv_opencvdemo.c"/>
     <file name="opencv_example.cpp"/>
+    <!-- Your tree detector -->
+    <file name="tree_detector.cpp"/>
     <file name="opencv_image_functions.cpp"/>
     <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install_arm/include/opencv4"/>
     

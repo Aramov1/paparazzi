@@ -1,0 +1,23 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="tree_detector" dir="computer_vision">
+  <doc>
+    <description>
+      Tree detector using OpenCV
+    </description>
+  </doc>
+
+  <header>
+    <file name="tree_detector.h"/>
+  </header>
+
+  <init fun="tree_detector_init()"/>
+
+  <makefile target="ap|nps">
+    <file name="tree_detector.c"/>
+    <file name="tree_detector_process.cpp"/>
+
+    
+    
+  </makefile>
+</module>

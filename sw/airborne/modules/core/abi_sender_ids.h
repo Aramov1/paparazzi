@@ -209,6 +209,9 @@
 #define AGL_SONAR_I2C_ID 17
 #endif
 
+//#ifndef ABI_SENDER_TREE_DETECTOR_ID
+//#define ABI_SENDER_TREE_DETECTOR_ID 42
+//#endif
 /*
  * IDs of magnetometer sensors (including IMUs with mag)
  */

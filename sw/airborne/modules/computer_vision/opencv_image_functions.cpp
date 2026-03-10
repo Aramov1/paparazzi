@@ -30,8 +30,8 @@
 
 
 using namespace std;
-#include <opencv2/core/core.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
 using namespace cv;
 
 void coloryuv_opencv_to_yuv422(Mat image, char *img, int width, int height)
