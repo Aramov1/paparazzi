@@ -60,6 +60,11 @@
       <define name="OPTICFLOW_DEROTATION_CORRECTION_FACTOR_Y" value="0.85"/>
     </module>
 
+    <module name="cv_detect_contour">
+      <define name="DETECT_CONTOUR_CAMERA" value="front_camera"/>
+      <define name="DETECT_CONTOUR_FPS" value="0"/>
+    </module>
+
     <!-- Obstacle avoidance via TTC -->
     <module name="obstacle_avoider"/>
 

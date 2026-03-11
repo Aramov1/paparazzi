@@ -684,5 +684,9 @@
 #define LIDAR_DATA_VL53L5CX_ID 1
 #endif
 
+#ifndef ABI_SENDER_TREE_DETECTOR_ID
+#define ABI_SENDER_TREE_DETECTOR_ID 42
+#endif
+
 
 #endif /* ABI_SENDER_IDS_H */

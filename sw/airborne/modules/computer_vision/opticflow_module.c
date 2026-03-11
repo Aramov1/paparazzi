@@ -32,6 +32,9 @@
 #include "state.h"
 #include "modules/core/abi.h"
 #include "modules/pose_history/pose_history.h"
+#include <string.h>
+#include "modules/computer_vision/detect_contour.h"
+#include "modules/computer_vision/opencv_contour.h"
 
 #include "lib/v4l/v4l2.h"
 #include "lib/encoding/jpeg.h"
@@ -70,7 +73,7 @@ struct opticflow_t opticflow[ACTIVE_CAMERAS];                         ///< Optic
 struct opticflow_result_t opticflow_result[ACTIVE_CAMERAS];    ///< The opticflow result
 
 static bool opticflow_got_result[ACTIVE_CAMERAS];       ///< When we have an optical flow calculation
-static pthread_mutex_t opticflow_mutex;                  ///< Mutex lock fo thread safety
+pthread_mutex_t opticflow_mutex;                  ///< Mutex lock fo thread safety
 
 /* Static functions */
 struct image_t *opticflow_module_calc(struct image_t *img,
@@ -190,7 +193,21 @@ struct image_t *opticflow_module_calc(struct image_t *img, uint8_t camera_id)
   if (opticflow_calc_frame(&opticflow[camera_id], img, &temp_result[camera_id])) {
     // Copy the result if finished
     pthread_mutex_lock(&opticflow_mutex);
+    if (opticflow_result[camera_id].flow_vectors != NULL) {
+      free(opticflow_result[camera_id].flow_vectors);
+      opticflow_result[camera_id].flow_vectors = NULL;
+    }
     opticflow_result[camera_id] = temp_result[camera_id];
+    if (temp_result[camera_id].flow_vectors != NULL &&
+        temp_result[camera_id].flow_vector_count > 0) {
+      opticflow_result[camera_id].flow_vectors = malloc(
+        sizeof(struct flow_t) * temp_result[camera_id].flow_vector_count);
+      if (opticflow_result[camera_id].flow_vectors != NULL) {
+        memcpy(opticflow_result[camera_id].flow_vectors,
+              temp_result[camera_id].flow_vectors,
+              sizeof(struct flow_t) * temp_result[camera_id].flow_vector_count);
+      }
+    }
     opticflow_got_result[camera_id] = true;
     pthread_mutex_unlock(&opticflow_mutex);
   }

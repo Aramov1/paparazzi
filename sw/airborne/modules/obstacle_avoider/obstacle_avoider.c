@@ -9,20 +9,30 @@
 #include "modules/computer_vision/opticflow/size_divergence.h"
 #include "lib/vision/image.h"
 #include "modules/computer_vision/cv.h"
+#include "modules/computer_vision/detect_contour.h"
+#include "modules/computer_vision/opencv_contour.h"
 #include BOARD_CONFIG
 
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
+#include <string.h>
+
+extern pthread_mutex_t opticflow_mutex;
+
+struct contour_estimation contour_estimation;
+extern struct contour_estimation cont_est;
+extern pthread_mutex_t contour_mutex;
 
 // GCS settings
 
 float OA_WARNING_TTC = 6.0f;
 float OA_SAFETY_TTC = 1.5f;
 float OA_MIN_FPS = 5.0f;
-float OA_MIN_DIVERGENCE = 0.008f;
+float OA_MIN_DIVERGENCE = 0.003f;  // 0.008 is a good number if wall problem is solved
 int OA_IMG_WIDTH = 272;
-float oa_region_min_divergence = 0.007f;
+float OA_REGION_MIN_DIVERGENCE = 0.007f;
 float OA_MIN_REGION_DIFF = 0.05f;
 
 extern struct opticflow_result_t opticflow_result[];
@@ -41,6 +51,8 @@ static uint32_t log_counter = 0;
 
 const int16_t max_trajectory_confidence = 5;
 float maxDistance = 2.25f;
+
+
 
 static uint8_t increase_nav_heading(float incrementDegrees)
 {
@@ -173,7 +185,24 @@ void obstacle_avoider_run(void)
 {
   if (!autopilot_in_flight()) return;
 
-  struct opticflow_result_t *result = &opticflow_result[0];
+  pthread_mutex_lock(&opticflow_mutex);
+  struct opticflow_result_t local_result = opticflow_result[0];
+  struct flow_t *local_vectors = NULL;
+  if (local_result.flow_vectors != NULL && local_result.flow_vector_count > 0) {
+    local_vectors = malloc(sizeof(struct flow_t) * local_result.flow_vector_count);
+    if (local_vectors != NULL) {
+      memcpy(local_vectors, local_result.flow_vectors,
+            sizeof(struct flow_t) * local_result.flow_vector_count);
+    }
+  }
+  pthread_mutex_unlock(&opticflow_mutex);
+  struct opticflow_result_t *result = &local_result;
+
+  pthread_mutex_lock(&contour_mutex);
+  contour_estimation.contour_d_x = cont_est.contour_d_x;
+  contour_estimation.contour_d_y = cont_est.contour_d_y;
+  contour_estimation.contour_d_z = cont_est.contour_d_z;
+  pthread_mutex_unlock(&contour_mutex);
 
   // DEBUG - print every frame so we can see exactly what's happening
   VERBOSE_PRINT("=== OA DEBUG === state=%d fps=%.1f tracked=%d div=%.6f flow_vectors=%s confidence=%d\n",
@@ -215,6 +244,10 @@ void obstacle_avoider_run(void)
     }
   }
 
+  if (contour_estimation.contour_d_x >= 0){
+    obstacle_detected = true;
+  }
+
   // ---------- CONFIDENCE ----------
   if (!obstacle_detected) {
     obstacle_free_confidence++;
@@ -238,7 +271,7 @@ void obstacle_avoider_run(void)
 
       } else if (obstacle_free_confidence == 0) {
         // Choose turn direction from divergence
-        if (result->flow_vectors != NULL && result->flow_vector_count >= 2) {
+        if (local_vectors != NULL && local_result.flow_vector_count >= 2) {
           float div_left  = get_divergence_region(result->flow_vectors,
                                                   result->flow_vector_count,
                                                   50, 0, OA_IMG_WIDTH / 2,
@@ -254,8 +287,8 @@ void obstacle_avoider_run(void)
           float abs_left  = fabsf(div_left);
           float abs_right = fabsf(div_right);
           float region_diff = fabsf(abs_right - abs_left);
-          bool left_significant  = abs_left  > oa_region_min_divergence;
-          bool right_significant = abs_right > oa_region_min_divergence;
+          bool left_significant  = abs_left  > OA_REGION_MIN_DIVERGENCE;
+          bool right_significant = abs_right > OA_REGION_MIN_DIVERGENCE;
           bool asymmetric = region_diff > OA_MIN_REGION_DIFF;
 
           if (left_significant || right_significant && asymmetric) {
@@ -277,7 +310,15 @@ void obstacle_avoider_run(void)
                           abs_left, abs_right,
                           heading_increment > 0 ? "RIGHT" : "LEFT");
           }
-        } else {
+        } else if (contour_estimation.contour_d_x >= 0){
+            VERBOSE_PRINT("Tree detected!");
+            if (contour_estimation.contour_d_y >= 0){
+              heading_increment = 5.f;
+            } else {
+              heading_increment = -5.f;
+            }
+        }
+         else {
           heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
           VERBOSE_PRINT("Not enough flow vectors - random turn %s\n",
                         heading_increment > 0 ? "RIGHT" : "LEFT");
@@ -332,5 +373,9 @@ void obstacle_avoider_run(void)
 
     default:
       break;
+  }
+
+  if (local_vectors != NULL) {
+    free(local_vectors);
   }
 }

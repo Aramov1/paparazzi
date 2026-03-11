@@ -27,163 +27,241 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include "opencv_image_functions.h"
-
 using namespace cv;
 using namespace std;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct contour_estimation cont_est;
 struct contour_threshold cont_thres;
 
+#ifdef __cplusplus
+}
+#endif
+
 RNG rng(12345);
 
-// YUV in opencv convert to YUV on Bebop
-void yuv_opencv_to_yuv422(Mat image, char *img, int width, int height)
+// Convert OpenCV RGB image back to Paparazzi YUV422 buffer
+static void yuv_opencv_to_yuv422(Mat image, char *img, int width, int height)
 {
-//Turn the opencv RGB colored image back in a YUV colored image for the drone
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
-      // Extract pixel color from image
-      cv::Vec3b &c = image.at<cv::Vec3b>(row, col);
+      Vec3b &c = image.at<Vec3b>(row, col);
 
-      // Set image buffer values
       int i = row * width + col;
-      img[2 * i + 1] = c[0]; // y;
-      img[2 * i] = col % 2 ? c[1] : c[2]; // u or v
+      img[2 * i + 1] = c[0];                // Y
+      img[2 * i] = (col % 2) ? c[1] : c[2]; // U or V
     }
   }
 }
 
-void uyvy_opencv_to_yuv_opencv(Mat image, Mat image_in, int width, int height)
+// Convert UYVY-like OpenCV image to YUV OpenCV image
+static void uyvy_opencv_to_yuv_opencv(Mat image, Mat image_in, int width, int height)
 {
-//Turn the opencv RGB colored image back in a YUV colored image for the drone
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
-      // Extract pixel color from image
-      cv::Vec3b c = image_in.at<cv::Vec3b>(row, col);
-      cv::Vec3b c_m1 = image_in.at<cv::Vec3b>(row, col);
-      cv::Vec3b c_p1 = image_in.at<cv::Vec3b>(row, col);
-      if (col > 0) {
-        c_m1 = image_in.at<cv::Vec3b>(row, col - 1);
-      }
-      if (col < width) {
-        c_p1 = image_in.at<cv::Vec3b>(row, col + 1);
-      }
-      image.at<cv::Vec3b>(row, col)[0] = c[1] ;
-      image.at<cv::Vec3b>(row, col)[1] = col % 2 ? c[0] : c_m1[0];
-      image.at<cv::Vec3b>(row, col)[2] = col % 2 ? c_p1[0] : c[0];
+      Vec3b c = image_in.at<Vec3b>(row, col);
+      Vec3b c_m1 = image_in.at<Vec3b>(row, col);
+      Vec3b c_p1 = image_in.at<Vec3b>(row, col);
 
+      if (col > 0) {
+        c_m1 = image_in.at<Vec3b>(row, col - 1);
+      }
+      if (col < width - 1) {
+        c_p1 = image_in.at<Vec3b>(row, col + 1);
+      }
+
+      image.at<Vec3b>(row, col)[0] = c[1];
+      image.at<Vec3b>(row, col)[1] = (col % 2) ? c[0] : c_m1[0];
+      image.at<Vec3b>(row, col)[2] = (col % 2) ? c_p1[0] : c[0];
     }
   }
 }
-
 void find_contour(char *img, int width, int height)
 {
-  // Create a new image, using the original bebop image.
-  Mat M(width, height, CV_8UC2, img); // original
-  Mat image, edge_image, thresh_image;
+  // Wrap incoming Paparazzi image buffer
+  Mat raw(height, width, CV_8UC2, img);
 
-  // convert UYVY in paparazzi to YUV in opencv
-  cvtColor(M, M, CV_YUV2RGB_Y422);
-  cvtColor(M, M, CV_RGB2YUV);
+  // Convert packed UYVY to RGB for processing and drawing
+  Mat rgb;
+  cvtColor(raw, rgb, cv::COLOR_YUV2RGB_UYVY);
 
-  // Threshold all values within the indicted YUV values.
-  inRange(M, Scalar(cont_thres.lower_y, cont_thres.lower_u, cont_thres.lower_v), Scalar(cont_thres.upper_y,
-          cont_thres.upper_u, cont_thres.upper_v), thresh_image);
+  putText(rgb, "TREE DETECTOR ACTIVE",
+          Point(20, 40),
+          FONT_HERSHEY_SIMPLEX,
+          0.8,
+          Scalar(255, 255, 255),
+          2);
 
-  /// Find contours
+  // ------------------------------------------------------------
+  // HSV threshold
+  // ------------------------------------------------------------
+  Mat hsv;
+  cvtColor(rgb, hsv, cv::COLOR_RGB2HSV);
+
+  Mat thresh_image;
+  inRange(hsv,
+          Scalar(30, 60, 40),
+          Scalar(100, 255, 255),
+          thresh_image);
+
+  // Optional: reduce isolated noise
+  medianBlur(thresh_image, thresh_image, 5);
+
+  
+
+  // ------------------------------------------------------------
+  // Morphology
+  // ------------------------------------------------------------
+  Mat kernel_small = getStructuringElement(MORPH_ELLIPSE, Size(3, 3));
+  Mat kernel_big   = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
+
+  morphologyEx(thresh_image, thresh_image, MORPH_OPEN, kernel_small);
+  morphologyEx(thresh_image, thresh_image, MORPH_CLOSE, kernel_big);
+// ------------------------------------------------------------
+  // Remove bottom third of the image
+  // ------------------------------------------------------------
+  int cut_y = (int)(2.0 * height / 3.0);
+  rectangle(thresh_image,
+            Rect(0, cut_y, width, height - cut_y),
+            Scalar(0),
+            FILLED);
+  // ------------------------------------------------------------
+  // Find contours
+  // ------------------------------------------------------------
   vector<vector<Point> > contours;
   vector<Vec4i> hierarchy;
-  edge_image = thresh_image;
-  int edgeThresh = 35;
-  Canny(edge_image, edge_image, edgeThresh, edgeThresh * 3);
-  findContours(edge_image, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+  findContours(thresh_image, contours, hierarchy,
+               cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, Point(0, 0));
 
-  // Get the moments
-  vector<Moments> mu(contours.size());
+  vector<Rect> tree_boxes;
+  vector<float> tree_scores;
+
   for (unsigned int i = 0; i < contours.size(); i++) {
-    mu[i] = moments(contours[i], false);
-  }
-
-  //  Get the mass centers:
-  vector<Point2f> mc(contours.size());
-  for (unsigned int i = 0; i < contours.size(); i++) {
-    mc[i] = Point2f(mu[i].m10 / mu[i].m00 , mu[i].m01 / mu[i].m00);
-  }
-
-  /// Draw contours
-  Mat drawing = Mat::zeros(edge_image.size(), CV_8UC3);
-  for (unsigned int i = 0; i < contours.size(); i++) {
-    Scalar color = Scalar(rng.uniform(0, 255), rng.uniform(0, 255), rng.uniform(0, 255));
-    drawContours(drawing, contours, i, color, 2, 8, hierarchy, 0, Point());
-    circle(drawing, mc[i], 4, color, -1, 8, 0);
-  }
-
-  // Find Largest Contour
-  int largest_contour_index = 0;
-  int largest_area = 0;
-  Rect bounding_rect;
-
-  // iterate through each contour.
-  for (unsigned int i = 0; i < contours.size(); i++) {
-    //  Find the area of contour
     double a = contourArea(contours[i], false);
-    if (a > largest_area) {
-      largest_area = a;
-      // Store the index of largest contour
-      largest_contour_index = i;
-      // Find the bounding rectangle for biggest contour
-      bounding_rect = boundingRect(contours[i]);
+
+    if (a < 100.0) {
+      continue;
     }
-  }
-  Scalar color(255, 255, 255);
-  // Draw the contour and rectangle
-  drawContours(M, contours, largest_contour_index, color, CV_FILLED, 8, hierarchy);
 
-  rectangle(M, bounding_rect,  Scalar(0, 255, 0), 2, 8, 0);
+    if (a > 0.4 * width * height) {
+      continue;
+    }
 
-  // some figure can cause there are no largest circles, in this case, do not draw circle
-  circle(M, mc[largest_contour_index], 4, Scalar(0, 255, 0), -1, 8, 0);
-  Point2f rect_center(bounding_rect.x + bounding_rect.width / 2 , bounding_rect.y + bounding_rect.height / 2);
-  circle(image, rect_center, 4, Scalar(0, 0, 255), -1, 8, 0);
+    Rect r = boundingRect(contours[i]);
 
-  // Convert back to YUV422, and put it in place of the original image
-  grayscale_opencv_to_yuv422(M, img, width, height);
-  float contour_distance_est;
-  //estimate the distance in X, Y and Z direction
-  float area = bounding_rect.width * bounding_rect.height;
-  if (area > 28000.) {
-    contour_distance_est = 0.1;
+    if (r.width < 10 || r.height < 10) {
+      continue;
+    }
+
+    if (r.width > 0.8 * width || r.height > 0.8 * height) {
+      continue;
+    }
+
+    float aspect_ratio = (float)r.height / (float)r.width;
+    if (aspect_ratio < 0.3f || aspect_ratio > 5.0f) {
+      continue;
+    }
+
+    float fill_ratio = (float)a / (float)(r.width * r.height);
+    if (fill_ratio < 0.15f) {
+      continue;
+    }
+
+    tree_boxes.push_back(r);
+    tree_scores.push_back((float)a);   // contour area as score
   }
-  if ((area > 16000.) && (area < 28000.)) {
-    contour_distance_est = 0.5;
+
+  // ------------------------------------------------------------
+  // Draw all detected trees
+  // ------------------------------------------------------------
+  for (unsigned int i = 0; i < tree_boxes.size(); i++) {
+    Rect r = tree_boxes[i];
+    Point2f c(r.x + r.width / 2.0f, r.y + r.height / 2.0f);
+
+    rectangle(rgb, r, Scalar(0, 255, 0), 2, 8, 0);
+    circle(rgb, c, 4, Scalar(255, 0, 255), -1, 8, 0);
+
+    char label[32];
+    snprintf(label, sizeof(label), "TREE %d", (int)i + 1);
+    putText(rgb, label,
+            Point(r.x, max(20, r.y - 8)),
+            FONT_HERSHEY_SIMPLEX,
+            0.5,
+            Scalar(0, 255, 0),
+            1);
   }
-  if ((area > 11000.) && (area < 16000.)) {
-    contour_distance_est = 1;
+
+  // ------------------------------------------------------------
+  // Choose main tree for output
+  // ------------------------------------------------------------
+  if (!tree_boxes.empty()) {
+    int best_idx = 0;
+    float best_score = tree_scores[0];
+
+    for (unsigned int i = 1; i < tree_boxes.size(); i++) {
+      if (tree_scores[i] > best_score) {
+        best_score = tree_scores[i];
+        best_idx = (int)i;
+      }
+    }
+
+    Rect best_box = tree_boxes[best_idx];
+    Point2f best_center(best_box.x + best_box.width / 2.0f,
+                        best_box.y + best_box.height / 2.0f);
+
+    float contour_distance_est = 2.0f;
+    float area = (float)(best_box.width * best_box.height);
+
+    if (area > 28000.0f) {
+      contour_distance_est = 0.1f;
+    } else if (area > 16000.0f) {
+      contour_distance_est = 0.5f;
+    } else if (area > 11000.0f) {
+      contour_distance_est = 1.0f;
+    } else if (area > 3000.0f) {
+      contour_distance_est = 1.5f;
+    } else {
+      contour_distance_est = 2.0f;
+    }
+
+    float Im_center_w = width / 2.0f;
+    float Im_center_h = height / 2.0f;
+    float real_size = 1.0f;
+
+    pthread_mutex_lock(&contour_mutex);
+    cont_est.contour_d_x = contour_distance_est;
+    cont_est.contour_d_y = -(best_center.x - Im_center_w) * real_size / float(best_box.width);
+    cont_est.contour_d_z = -(best_center.y - Im_center_h) * real_size / float(best_box.height);
+    pthread_mutex_unlock(&contour_mutex);
+    char txt[160];
+    snprintf(txt, sizeof(txt), "TREES=%d MAIN cx=%.1f cy=%.1f area=%.0f",
+             (int)tree_boxes.size(), best_center.x, best_center.y, area);
+    putText(rgb, txt,
+            Point(20, height - 20),
+            FONT_HERSHEY_SIMPLEX,
+            0.5,
+            Scalar(255, 255, 255),
+            1);
+  } else {
+    pthread_mutex_lock(&contour_mutex);
+    cont_est.contour_d_x = -1.0f;
+    cont_est.contour_d_y = 0.0f;
+    cont_est.contour_d_z = 0.0f;
+    pthread_mutex_unlock(&contour_mutex);
+
+    putText(rgb, "NO TREE DETECTED",
+            Point(20, height - 20),
+            FONT_HERSHEY_SIMPLEX,
+            0.6,
+            Scalar(255, 255, 255),
+            2);
   }
-  if ((area > 3000.) && (area < 11000.)) {
-    contour_distance_est = 1.5;
-  }
-  if (area < 3000.) {
-    contour_distance_est = 2.0;
-  }
-  cont_est.contour_d_x = contour_distance_est;
-  float Im_center_w = width / 2.;
-  float Im_center_h = height / 2.;
-  float real_size = 1.; // real size of the object
-  cont_est.contour_d_y = -(rect_center.x - Im_center_w) * real_size / float(bounding_rect.width); // right hand
-  cont_est.contour_d_z = -(rect_center.y - Im_center_h) * real_size / float(bounding_rect.height); // point downwards
+
+  // ------------------------------------------------------------
+  // Write processed image back to Paparazzi buffer
+  // ------------------------------------------------------------
+  yuv_opencv_to_yuv422(rgb, img, width, height);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

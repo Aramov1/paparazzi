@@ -27,6 +27,8 @@
 #ifndef OPENCV_CONTOUR_H
 #define OPENCV_CONTOUR_H
 
+#include <pthread.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,6 +45,7 @@ struct contour_threshold {
 
 extern struct contour_estimation cont_est;
 extern struct contour_threshold cont_thres;
+extern pthread_mutex_t contour_mutex;
 
 void find_contour(char *img, int width, int height);
 

@@ -9,7 +9,7 @@ extern float OA_SAFETY_TTC;
 extern float OA_MIN_FPS;
 extern float OA_MIN_DIVERGENCE;
 extern int OA_IMG_WIDTH;
-extern float oa_region_min_divergence;
+extern float OA_REGION_MIN_DIVERGENCE;
 extern float OA_MIN_REGION_DIFF;
 
 #define PRINT(string,...) fprintf(stderr, "[obstacle_avoider->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
