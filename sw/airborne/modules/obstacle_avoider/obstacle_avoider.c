@@ -17,11 +17,13 @@
 
 // GCS settings
 
-float OA_WARNING_TTC = 10.0f;
+float OA_WARNING_TTC = 6.0f;
 float OA_SAFETY_TTC = 1.5f;
 float OA_MIN_FPS = 5.0f;
-float OA_MIN_DIVERGENCE = 0.01f;
+float OA_MIN_DIVERGENCE = 0.008f;
 int OA_IMG_WIDTH = 272;
+float oa_region_min_divergence = 0.007f;
+float OA_MIN_REGION_DIFF = 0.05f;
 
 extern struct opticflow_result_t opticflow_result[];
 
@@ -246,34 +248,38 @@ void obstacle_avoider_run(void)
                                                   50, OA_IMG_WIDTH / 2, OA_IMG_WIDTH,
                                                   result->subpixel_factor);
 
-          VERBOSE_PRINT("DIVERGENCE DEBUG: pixel_left=%.6f pixel_right=%.6f tracked=%d img_width=%d subpixel=%d\n",
-                        div_left, div_right, result->flow_vector_count,
-                        OA_IMG_WIDTH, result->subpixel_factor);
+          VERBOSE_PRINT("DIVERGENCE DEBUG: pixel_left=%.6f pixel_right=%.6f tracked=%d\n",
+                        div_left, div_right, result->flow_vector_count);
 
-          if (div_left != 0.f && div_right != 0.f && result->flow_vector_count >= 8) {
-            // Enough points in both halves - use spatial comparison
-            // Higher divergence side = obstacle side = turn away from it
-            heading_increment = (div_right > div_left) ? -5.f : 5.f;
-            VERBOSE_PRINT("Spatial decision: left=%.4f right=%.4f turning %s\n",
-                          div_left, div_right,
-                          heading_increment > 0 ? "RIGHT" : "LEFT");
-          } else {
-            // Too few points for reliable split - use whichever side has more divergence
-            if (fabsf(div_right) > fabsf(div_left)) {
-              heading_increment = -5.f;
-              VERBOSE_PRINT("Few points - obstacle on pixel-RIGHT, turning LEFT\n");
-            } else if (fabsf(div_left) > fabsf(div_right)) {
-              heading_increment = 5.f;
-              VERBOSE_PRINT("Few points - obstacle on pixel-LEFT, turning RIGHT\n");
-            } else {
-              heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
-              VERBOSE_PRINT("No spatial info - random turn %s\n",
+          float abs_left  = fabsf(div_left);
+          float abs_right = fabsf(div_right);
+          float region_diff = fabsf(abs_right - abs_left);
+          bool left_significant  = abs_left  > oa_region_min_divergence;
+          bool right_significant = abs_right > oa_region_min_divergence;
+          bool asymmetric = region_diff > OA_MIN_REGION_DIFF;
+
+          if (left_significant || right_significant && asymmetric) {
+            if (left_significant && right_significant && result->flow_vector_count >= 8) {
+              heading_increment = (abs_right > abs_left) ? -5.f : 5.f;
+              VERBOSE_PRINT("Both significant: left=%.4f right=%.4f turning %s\n",
+                            abs_left, abs_right,
                             heading_increment > 0 ? "RIGHT" : "LEFT");
+            } else if (right_significant) {
+              heading_increment = -5.f;
+              VERBOSE_PRINT("Only right significant: %.4f - turning LEFT\n", abs_right);
+            } else {
+              heading_increment = 5.f;
+              VERBOSE_PRINT("Only left significant: %.4f - turning RIGHT\n", abs_left);
             }
+          } else {
+            heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
+            VERBOSE_PRINT("Neither side significant (left=%.4f right=%.4f) - random turn %s\n",
+                          abs_left, abs_right,
+                          heading_increment > 0 ? "RIGHT" : "LEFT");
           }
         } else {
           heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
-          VERBOSE_PRINT("Not enough flow vectors, random turn %s\n",
+          VERBOSE_PRINT("Not enough flow vectors - random turn %s\n",
                         heading_increment > 0 ? "RIGHT" : "LEFT");
         }
 
