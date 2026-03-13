@@ -1,0 +1,19 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="gate_navigator">
+  <doc>
+    <description>
+    Exercise module for Autonomous Flight of MAV Course
+    </description>
+  </doc>
+  <!-- <depends>cv_detect_color_object</depends> -->
+  <!-- TODO Specify header, init, periodic, makefile sections  -->
+  <header>
+    <file name="gate_nav.h"/>
+  </header>
+  <init fun="gate_navigator_init()"/>
+  <periodic fun="gate_navigator_periodic()" freq="60"/>
+  <makefile target="ap|nps">
+    <file name="gate_nav.c"/>
+  </makefile>
+</module>
