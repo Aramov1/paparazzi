@@ -46,7 +46,7 @@ extern struct contour_threshold cont_thres;
 
 void find_contour(char *img, int width, int height);
 
-#ifdef __cplusplus
+#ifdef __c
 }
 #endif
 
