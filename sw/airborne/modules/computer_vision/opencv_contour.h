@@ -49,7 +49,7 @@ extern pthread_mutex_t contour_mutex;
 
 void find_contour(char *img, int width, int height);
 
-#ifdef __cplusplus
+#ifdef __c
 }
 #endif
 
