@@ -29,6 +29,7 @@ extern void edge_detection_init(void);
 extern int edge_thresh;
 extern int green_thresh_value;
 extern int floor_margin;
+extern int edge_draw;
 extern int edge_count_left;
 extern int edge_count_center;
 extern int edge_count_right;

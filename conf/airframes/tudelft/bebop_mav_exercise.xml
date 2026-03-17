@@ -65,6 +65,12 @@
       <define name="DETECT_CONTOUR_FPS" value="0"/>
     </module>
 
+    <!-- Edge detection -->
+    <module name="cv_edge_detection">
+      <define name="EDGE_DETECTION_CAMERA" value="front_camera"/>
+      <define name="EDGE_DETECTION_GRAYSCALE" value="1"/>
+    </module>
+
     <!-- Obstacle avoidance via TTC -->
     <module name="obstacle_avoider"/>
 

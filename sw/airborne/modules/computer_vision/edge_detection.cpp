@@ -45,6 +45,7 @@ int green_thresh_value = GREEN_THRESH_VALUE;
 #define FLOOR_MARGIN 180
 #endif
 int floor_margin = FLOOR_MARGIN;
+int edge_draw = 1;
 int edge_count_left   = 0;
 int edge_count_center = 0;
 int edge_count_right  = 0;
@@ -221,10 +222,12 @@ int edge_detection_run(char *img, int width, int height)
   for (int r = 0; r < height; r++) {
     for (int c = 0; c < width; c++) {
       uint8_t val = edge_buf[r * width + c];
-      buf[r * width * 2 + c * 2 + 1] = val;
-      int uv_idx = r * width * 2 + (c & ~1) * 2;
-      buf[uv_idx]     = 127;
-      buf[uv_idx + 2] = 127;
+      if (edge_draw) {
+        buf[r * width * 2 + c * 2 + 1] = val;
+        int uv_idx = r * width * 2 + (c & ~1) * 2;
+        buf[uv_idx]     = 127;
+        buf[uv_idx + 2] = 127;
+      }
       if (val > 0) {
         if      (c < third)     edge_count_left++;
         else if (c < 2 * third) edge_count_center++;
