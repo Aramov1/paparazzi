@@ -34,6 +34,25 @@ using namespace std;
 using namespace cv;
 #include "opencv_image_functions.h"
 
+#ifndef EDGE_THRESHOLD
+#define EDGE_THRESHOLD 35
+#endif
+int edge_thresh = EDGE_THRESHOLD;
+
+#ifndef GREEN_THRESH_VALUE
+#define GREEN_THRESH_VALUE 160
+#endif
+int green_thresh_value = GREEN_THRESH_VALUE;
+
+#ifndef FLOOR_MARGIN
+#define FLOOR_MARGIN 100
+#endif
+int floor_margin = FLOOR_MARGIN;
+int edge_count_left   = 0;
+int edge_count_center = 0;
+int edge_count_right  = 0;
+int edge_count_total  = 0;
+
 
 int opencv_example(char *img, int width, int height)
 {
@@ -44,18 +63,97 @@ int opencv_example(char *img, int width, int height)
 #if OPENCVDEMO_GRAYSCALE
   //  Grayscale image example
   cvtColor(M, image, cv::COLOR_YUV2BGR_YUY2);
-  // Canny edges, only works with grayscale image
-  int edgeThresh = 35;
-  Canny(image, image, edgeThresh, edgeThresh * 3);
-  // Convert back to YUV422, and put it in place of the original image
-  grayscale_opencv_to_yuv422(image, img, width, height);
+  GaussianBlur(image, image, Size(5, 5), 0);
+  Mat hsv;
+  cvtColor(image, hsv, cv::COLOR_BGR2HSV);
+  Mat greenMask;
+  inRange(hsv,
+          Scalar(40, 150, 50),   // hue 40-75, saturation >150, value 50-180
+          Scalar(75, 255, green_thresh_value),  // upper value cuts out bright wall
+          greenMask);
+
+  // Find largest green contour and fill it as the floor mask
+  vector<vector<Point>> contours;
+  findContours(greenMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+  Mat floorMask = Mat::zeros(greenMask.size(), CV_8UC1);
+  if (!contours.empty()) {
+      int largestIdx = 0;
+      double largestArea = 0;
+      for (int i = 0; i < (int)contours.size(); i++) {
+          double area = contourArea(contours[i]);
+          if (area > largestArea) {
+              largestArea = area;
+              largestIdx = i;
+          }
+      }
+      drawContours(floorMask, contours, largestIdx, Scalar(255), -1);
+  }
+
+  // Find horizon row (topmost floor pixel)
+  int horizonRow = floorMask.rows;
+  for (int row = 0; row < floorMask.rows; row++) {
+      for (int col = 0; col < floorMask.cols; col++) {
+          if (floorMask.at<uchar>(row, col) > 0) {
+              horizonRow = row;
+              goto foundHorizon;
+          }
+      }
+  }
+  foundHorizon:
+
+  // Find left and right boundaries
+  int leftBound = floorMask.cols;
+  int rightBound = 0;
+  for (int col = 0; col < floorMask.cols; col++) {
+      for (int row = 0; row < floorMask.rows; row++) {
+          if (floorMask.at<uchar>(row, col) > 0) {
+              if (col < leftBound) leftBound = col;
+              if (col > rightBound) rightBound = col;
+              break;
+          }
+      }
+  }
+
+  // Build dilated mask: below horizon with margin, above without
+  int margin = floor_margin;
+  Mat dilatedMask = Mat::zeros(floorMask.size(), CV_8UC1);
+  rectangle(dilatedMask,
+            Point(max(0, leftBound - margin), horizonRow),
+            Point(min(floorMask.cols, rightBound + margin), floorMask.rows),
+            Scalar(255), -1);
+  rectangle(dilatedMask,
+            Point(leftBound, 0),
+            Point(rightBound, horizonRow),
+            Scalar(255), -1);
+  dilatedMask |= floorMask;
+
+  // Run Canny on the whole image, then mask to floor region
+  Mat edges;
+  Canny(image, edges, edge_thresh, edge_thresh * 3);
+  Mat maskedEdges;
+  if (contours.empty()) {
+    maskedEdges = edges;
+  } else {
+    edges.copyTo(maskedEdges, dilatedMask);
+  }
+
+  // Count edges in left, center, right thirds
+  int third = maskedEdges.cols / 3;
+  Mat leftRegion   = maskedEdges(Rect(0,       0, third, maskedEdges.rows));
+  Mat centerRegion = maskedEdges(Rect(third,   0, third, maskedEdges.rows));
+  Mat rightRegion  = maskedEdges(Rect(2*third, 0, third, maskedEdges.rows));
+
+  edge_count_left   = countNonZero(leftRegion);
+  edge_count_center = countNonZero(centerRegion);
+  edge_count_right  = countNonZero(rightRegion);
+  edge_count_total  = edge_count_left + edge_count_center + edge_count_right;
+
+  grayscale_opencv_to_yuv422(maskedEdges, img, width, height);
 #else // OPENCVDEMO_GRAYSCALE
   // Color image example
-  // Convert the image to an OpenCV Mat
   cvtColor(M, image, cv::COLOR_YUV2BGR_YUY2);
-  // Blur it, because we can
   blur(image, image, Size(5, 5));
-  // Convert back to YUV422 and put it in place of the original image
   colorbgr_opencv_to_yuv422(image, img, width, height);
 #endif // OPENCVDEMO_GRAYSCALE
 

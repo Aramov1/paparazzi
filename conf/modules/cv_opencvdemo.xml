@@ -52,6 +52,15 @@ extern "C" {
     <define name="OPENCVDEMO_CAMERA" value="front_camera|bottom_camera" description="Video device to use"/>
     <define name="OPENCVDEMO_FPS" value="0" description="The (maximum) frequency to run the calculations at. If zero, it will max out at the camera frame rate"/>
   </doc>
+  <settings>
+    <dl_settings>
+      <dl_settings name="EdgeDetection">
+        <dl_setting var="edge_thresh" min="20" step="5" max="100" shortname="edge_thresh"/>
+        <dl_setting var="green_thresh_value" min="100" step="10" max="220" shortname="green_val"/>
+        <dl_setting var="floor_margin" min="0" step="10" max="300" shortname="floor_margin"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
   <header>
     <file name="cv_opencvdemo.h"/>
   </header>
@@ -61,7 +70,8 @@ extern "C" {
     <file name="opencv_example.cpp"/>
     <file name="opencv_image_functions.cpp"/>
     <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install_arm/include/opencv4"/>
-    
+    <flag name="LDFLAGS" value="L/usr/lib/gcc-cross/arm-linux-gnueabi/9"/>
+    <flag name="LDFLAGS" value="l:libstdc++.a"/>
     <flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install_arm/lib"/>
     <flag name="LDFLAGS" value="lopencv_world"/>
     <flag name="LDFLAGS" value="L$(PAPARAZZI_HOME)/sw/ext/opencv_bebop/install_arm/lib/opencv4/3rdparty"/>
