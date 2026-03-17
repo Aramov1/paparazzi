@@ -48,12 +48,12 @@ struct contour_threshold  cont_thres;
  *  Threshold #defines
  *  Paste updated values from tune_detector.py / tuner widget here.
  * ================================================================ */
-#define Y_MIN      40
-#define Y_MAX     235
-#define U_MIN      77
-#define U_MAX     146
-#define V_MIN      22
-#define V_MAX     133
+#define Y_MIN      44
+#define Y_MAX     136
+#define U_MIN      86
+#define U_MAX     123
+#define V_MIN      65
+#define V_MAX     134
 
 /* Maximum number of connected components the detector will track.
    Increase if your scene can contain more distinct green blobs.    */
@@ -469,8 +469,8 @@ void find_contour(char *img, int width, int height)
   median_blur_5(mask, tmp, width, height);
 
   /* ------ 4. Morphology: OPEN (r=1) then CLOSE (r=2) -------------- */
-  morph_open (mask, tmp, width, height, 1);
-  morph_close(mask, tmp, width, height, 2);
+  morph_open (mask, tmp, width, height, 4);
+  morph_close(mask, tmp, width, height, 6);
 
   /* ------ 5. Erase bottom third ------------------------------------ */
   {
