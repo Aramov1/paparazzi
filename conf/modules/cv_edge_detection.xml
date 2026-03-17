@@ -1,0 +1,40 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="cv_edge_detection" dir="computer_vision">
+  <doc>
+    <description>
+      Edge detection module using a manual Canny pipeline (Gaussian blur, Sobel,
+      non-maximum suppression, hysteresis) directly on the YUV422 camera buffer.
+      No OpenCV dependency. Outputs edge counts in left/center/right image thirds.
+    </description>
+
+    <define name="EDGE_DETECTION_CAMERA" value="front_camera|bottom_camera" description="Video device to use"/>
+    <define name="EDGE_DETECTION_FPS" value="0" description="The (maximum) frequency to run the calculations at. If zero, it will max out at the camera frame rate"/>
+  </doc>
+  <settings>
+    <dl_settings>
+      <dl_settings name="EdgeDetection">
+        <dl_setting var="edge_thresh" min="10" step="5" max="100" shortname="edge_thresh"/>
+        <dl_setting var="green_thresh_value" min="100" step="10" max="220" shortname="green_val"/>
+        <dl_setting var="floor_margin" min="0" step="10" max="300" shortname="floor_margin"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
+  <header>
+    <file name="cv_edge_detection.h"/>
+  </header>
+  <init fun="edge_detection_init()"/>
+  <makefile target="ap">
+    <file name="cv_edge_detection.c"/>
+    <file name="edge_detection.cpp"/>
+    <flag name="LDFLAGS" value="L/usr/lib/gcc-cross/arm-linux-gnueabi/9"/>
+    <flag name="LDFLAGS" value="l:libstdc++.a"/>
+    <flag name="LDFLAGS" value="lm"/>
+    <flag name="LDFLAGS" value="lpthread"/>
+    <flag name="LDFLAGS" value="lrt"/>
+  </makefile>
+  <makefile target="nps">
+    <file name="cv_edge_detection.c"/>
+    <file name="edge_detection.cpp"/>
+  </makefile>
+</module>
