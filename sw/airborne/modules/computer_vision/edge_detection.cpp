@@ -238,7 +238,6 @@ int edge_detection_run(char *img, int width, int height)
   edge_count_total = edge_count_left + edge_count_center + edge_count_right;
   clock_gettime(CLOCK_MONOTONIC, &t1);
   long ms = (t1.tv_sec - t0.tv_sec) * 1000 + (t1.tv_nsec - t0.tv_nsec) / 1000000;
-  printf("edges L:%d C:%d R:%d T:%d  time:%ldms\n", edge_count_left, edge_count_center, edge_count_right, edge_count_total, ms);
 
 #endif // EDGE_DETECTION_GRAYSCALE
 

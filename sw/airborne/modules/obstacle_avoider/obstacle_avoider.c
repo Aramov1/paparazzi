@@ -45,9 +45,12 @@ enum navigation_state_t {
 };
 
 static enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;
+static enum navigation_state_t prev_state = SEARCH_FOR_SAFE_HEADING;
 static float heading_increment = 5.f;
 static int16_t obstacle_free_confidence = 0;
 static uint32_t log_counter = 0;
+static bool prev_safety_crossed = false;
+static bool prev_warning_crossed = false;
 
 const int16_t max_trajectory_confidence = 5;
 float maxDistance = 2.25f;
@@ -59,7 +62,6 @@ static uint8_t increase_nav_heading(float incrementDegrees)
   float new_heading = stateGetNedToBodyEulers_f()->psi + RadOfDeg(incrementDegrees);
   FLOAT_ANGLE_NORMALIZE(new_heading);
   nav.heading = new_heading;
-  VERBOSE_PRINT("Adjusting heading to %f deg\n", DegOfRad(new_heading));
   return false;
 }
 
@@ -70,16 +72,11 @@ uint8_t calculateForwards(struct EnuCoor_i *new_coor, float distanceMeters)
   // Now determine where to place the waypoint you want to go to
   new_coor->x = stateGetPositionEnu_i()->x + POS_BFP_OF_REAL(sinf(heading) * (distanceMeters));
   new_coor->y = stateGetPositionEnu_i()->y + POS_BFP_OF_REAL(cosf(heading) * (distanceMeters));
-  VERBOSE_PRINT("Calculated %f m forward position. x: %f  y: %f based on pos(%f, %f) and heading(%f)\n", distanceMeters,	
-                POS_FLOAT_OF_BFP(new_coor->x), POS_FLOAT_OF_BFP(new_coor->y),
-                stateGetPositionEnu_f()->x, stateGetPositionEnu_f()->y, DegOfRad(heading));
   return false;
 }
 
 uint8_t moveWaypoint(uint8_t waypoint, struct EnuCoor_i *new_coor)
 {
-  VERBOSE_PRINT("Moving waypoint %d to x:%f y:%f\n", waypoint, POS_FLOAT_OF_BFP(new_coor->x),
-                POS_FLOAT_OF_BFP(new_coor->y));
   waypoint_move_xy_i(waypoint, new_coor->x, new_coor->y);
   return false;
 }
@@ -185,6 +182,8 @@ void obstacle_avoider_run(void)
 {
   if (!autopilot_in_flight()) return;
 
+  log_counter++;
+
   pthread_mutex_lock(&opticflow_mutex);
   struct opticflow_result_t local_result = opticflow_result[0];
   struct flow_t *local_vectors = NULL;
@@ -204,14 +203,6 @@ void obstacle_avoider_run(void)
   contour_estimation.contour_d_z = cont_est.contour_d_z;
   pthread_mutex_unlock(&contour_mutex);
 
-  // DEBUG - print every frame so we can see exactly what's happening
-  VERBOSE_PRINT("=== OA DEBUG === state=%d fps=%.1f tracked=%d div=%.6f flow_vectors=%s confidence=%d\n",
-                navigation_state,
-                result->fps,
-                result->tracked_cnt,
-                result->div_size,
-                result->flow_vectors != NULL ? "OK" : "NULL",
-                obstacle_free_confidence);
 
   // ---------- OBSTACLE DETECTION via TTC ----------
   float div_full = result->div_size;
@@ -225,23 +216,31 @@ void obstacle_avoider_run(void)
     ttc = 1.0f / (fabsf(div_full) * result->fps);
 
     if (ttc < OA_SAFETY_TTC) {
-      VERBOSE_PRINT("!!! SAFETY THRESHOLD CROSSED: TTC=%.2fs (< %.2fs) - EMERGENCY STOP\n",
-                    ttc, OA_SAFETY_TTC);
+      if (!prev_safety_crossed) {
+        VERBOSE_PRINT("!!! SAFETY THRESHOLD CROSSED: TTC=%.2fs (< %.2fs) - EMERGENCY STOP\n",
+                      ttc, OA_SAFETY_TTC);
+      }
+      prev_safety_crossed = true;
+      prev_warning_crossed = true;
       obstacle_detected = true;
     } else if (ttc < OA_WARNING_TTC) {
-      VERBOSE_PRINT("WARNING THRESHOLD CROSSED: TTC=%.2fs (< %.2fs) - STEERING\n",
-                    ttc, OA_WARNING_TTC);
+      if (!prev_warning_crossed) {
+        VERBOSE_PRINT("WARNING THRESHOLD CROSSED: TTC=%.2fs (< %.2fs) - STEERING\n",
+                      ttc, OA_WARNING_TTC);
+      }
+      prev_warning_crossed = true;
+      prev_safety_crossed = false;
       obstacle_detected = true;
     } else {
-      if (++log_counter % 20 == 0) {
+      prev_safety_crossed = false;
+      prev_warning_crossed = false;
+      if (log_counter % 30 == 0) {
         VERBOSE_PRINT("TTC nominal: %.2fs\n", ttc);
       }
     }
   } else {
-    if (++log_counter % 20 == 0) {
-      VERBOSE_PRINT("TTC not computed - fps=%.1f tracked=%d div=%.4f\n",
-                    result->fps, result->tracked_cnt, div_full);
-    }
+    prev_safety_crossed = false;
+    prev_warning_crossed = false;
   }
 
   if (contour_estimation.contour_d_x >= 0){
@@ -364,15 +363,16 @@ void obstacle_avoider_run(void)
         obstacle_free_confidence = 0;
         navigation_state = SEARCH_FOR_SAFE_HEADING;
         VERBOSE_PRINT("Back inside arena - verifying path before resuming\n");
-      } else {
-        if (++log_counter % 20 == 0) {
-          VERBOSE_PRINT("Still out of bounds - continuing to turn\n");
-        }
       }
       break;
 
     default:
       break;
+  }
+
+  if (navigation_state != prev_state) {
+    VERBOSE_PRINT("STATE: %d -> %d\n", prev_state, navigation_state);
+    prev_state = navigation_state;
   }
 
   if (local_vectors != NULL) {
