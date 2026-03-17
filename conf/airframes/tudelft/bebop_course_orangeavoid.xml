@@ -6,6 +6,8 @@
 
 
   <firmware name="rotorcraft">
+    <define name="HARD_FLOAT" value="1"/>
+    <configure name="SUFFIX_VERSION" value="-9"/>
     <target name="ap" board="bebop">
       <define name="VIDEO_CAPTURE_PATH" value="/data/ftp/internal_000/images"/>
       <define name="LOGGER_FILE_PATH" value="/data/ftp/internal_000/log"/>

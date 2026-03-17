@@ -36,13 +36,13 @@ ifeq ($(shell which $(PREFIX)gcc),)
   endif
 endif
 
-CC    = $(PREFIX)gcc
-CXX   = $(PREFIX)g++
-LD    = $(PREFIX)g++
-AR    = $(PREFIX)ar
-CP    = $(PREFIX)objcopy
-DMP   = $(PREFIX)objdump
-NM    = $(PREFIX)nm
+CC    = $(PREFIX)gcc$(SUFFIX_VERSION)
+CXX   = $(PREFIX)g++$(SUFFIX_VERSION)
+LD    = $(PREFIX)g++$(SUFFIX_VERSION)
+AR    = $(PREFIX)ar$(SUFFIX_VERSION)
+CP    = $(PREFIX)objcopy$(SUFFIX_VERSION)
+DMP   = $(PREFIX)objdump$(SUFFIX_VERSION)
+NM    = $(PREFIX)nm$(SUFFIX_VERSION)
 SIZE  = $(PREFIX)size
 STRIP = $(PREFIX)strip
 
