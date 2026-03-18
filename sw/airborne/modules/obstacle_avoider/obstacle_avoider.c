@@ -11,6 +11,7 @@
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/detect_contour.h"
 #include "modules/computer_vision/opencv_contour.h"
+#include "modules/computer_vision/opencv_example.h"
 #include BOARD_CONFIG
 
 #include <math.h>
@@ -26,14 +27,13 @@ extern struct contour_estimation cont_est;
 extern pthread_mutex_t contour_mutex;
 
 // GCS settings
-
 float OA_WARNING_TTC = 6.0f;
-float OA_SAFETY_TTC = 1.5f;
-float OA_MIN_FPS = 5.0f;
-float OA_MIN_DIVERGENCE = 0.003f;  // 0.008 is a good number if wall problem is solved
-int OA_IMG_WIDTH = 272;
-float OA_REGION_MIN_DIVERGENCE = 0.007f;
-float OA_MIN_REGION_DIFF = 0.05f;
+float OA_SAFETY_TTC  = 1.5f;
+float OA_MIN_FPS     = 5.0f;
+float OA_MIN_DIVERGENCE = 0.003f;
+int   OA_IMG_WIDTH   = 272;
+int   OA_EDGE_OBSTACLE_THRESHOLD = 6000;  // Canny edge pixel count in center third triggering obstacle
+int   OA_FLOOR_MIN_AREA          = 2000; // Min floor pixels in center third before triggering obstacle
 
 extern struct opticflow_result_t opticflow_result[];
 
@@ -184,6 +184,7 @@ void obstacle_avoider_run(void)
 
   log_counter++;
 
+  // --- Read opticflow (thread-safe copy) ---
   pthread_mutex_lock(&opticflow_mutex);
   struct opticflow_result_t local_result = opticflow_result[0];
   struct flow_t *local_vectors = NULL;
@@ -191,63 +192,136 @@ void obstacle_avoider_run(void)
     local_vectors = malloc(sizeof(struct flow_t) * local_result.flow_vector_count);
     if (local_vectors != NULL) {
       memcpy(local_vectors, local_result.flow_vectors,
-            sizeof(struct flow_t) * local_result.flow_vector_count);
+             sizeof(struct flow_t) * local_result.flow_vector_count);
     }
   }
   pthread_mutex_unlock(&opticflow_mutex);
-  struct opticflow_result_t *result = &local_result;
 
+  // --- Read tree detection (thread-safe copy) ---
   pthread_mutex_lock(&contour_mutex);
   contour_estimation.contour_d_x = cont_est.contour_d_x;
   contour_estimation.contour_d_y = cont_est.contour_d_y;
   contour_estimation.contour_d_z = cont_est.contour_d_z;
   pthread_mutex_unlock(&contour_mutex);
 
+  // --- Read edge detection and floor area (int reads, single camera writer) ---
+  int local_edge_left   = edge_count_left;
+  int local_edge_center = edge_count_center;
+  int local_edge_right  = edge_count_right;
+  int local_floor_left  = floor_area_left;
+  int local_floor_center = floor_area_center;
+  int local_floor_right = floor_area_right;
 
-  // ---------- OBSTACLE DETECTION via TTC ----------
-  float div_full = result->div_size;
-  float ttc = 0.f;
+  // ==========================================================================
+  // OBSTACLE DETECTION + TURN DIRECTION VOTE
+  // ==========================================================================
   bool obstacle_detected = false;
+  float ttc = 0.f;
+  float speed_factor = 1.0f;
+  int turn_vote = 0;  // positive = turn right, negative = turn left
 
+  struct opticflow_result_t *result = &local_result;
+
+  // --- Signal 1: Opticflow TTC (primary) ---
   if (result->fps >= OA_MIN_FPS &&
       result->tracked_cnt >= 4 &&
-      result->flow_vectors != NULL &&
-      fabsf(div_full) > OA_MIN_DIVERGENCE) {
-    ttc = 1.0f / (fabsf(div_full) * result->fps);
+      local_vectors != NULL &&
+      fabsf(result->div_size) > OA_MIN_DIVERGENCE) {
+
+    ttc = 1.0f / (fabsf(result->div_size) * result->fps);
 
     if (ttc < OA_SAFETY_TTC) {
+      obstacle_detected = true;
+      speed_factor = 0.0f;
       if (!prev_safety_crossed) {
-        VERBOSE_PRINT("!!! SAFETY THRESHOLD CROSSED: TTC=%.2fs (< %.2fs) - EMERGENCY STOP\n",
-                      ttc, OA_SAFETY_TTC);
+        VERBOSE_PRINT("!!! SAFETY: TTC=%.2fs\n", ttc);
       }
-      prev_safety_crossed = true;
+      prev_safety_crossed  = true;
       prev_warning_crossed = true;
-      obstacle_detected = true;
     } else if (ttc < OA_WARNING_TTC) {
+      obstacle_detected = true;
+      speed_factor = (ttc - OA_SAFETY_TTC) / (OA_WARNING_TTC - OA_SAFETY_TTC);
+      Bound(speed_factor, 0.0f, 1.0f);
       if (!prev_warning_crossed) {
-        VERBOSE_PRINT("WARNING THRESHOLD CROSSED: TTC=%.2fs (< %.2fs) - STEERING\n",
-                      ttc, OA_WARNING_TTC);
+        VERBOSE_PRINT("WARNING: TTC=%.2fs speed=%.2f\n", ttc, speed_factor);
       }
       prev_warning_crossed = true;
-      prev_safety_crossed = false;
-      obstacle_detected = true;
+      prev_safety_crossed  = false;
     } else {
-      prev_safety_crossed = false;
+      prev_safety_crossed  = false;
       prev_warning_crossed = false;
       if (log_counter % 30 == 0) {
         VERBOSE_PRINT("TTC nominal: %.2fs\n", ttc);
       }
     }
+
+    // 3-region divergence → turn direction vote (left vs right, ignore center for direction)
+    int third = OA_IMG_WIDTH / 3;
+    float div_left  = get_divergence_region(local_vectors, local_result.flow_vector_count,
+                                            30, 0,       third,        local_result.subpixel_factor);
+    float div_right = get_divergence_region(local_vectors, local_result.flow_vector_count,
+                                            30, 2*third, OA_IMG_WIDTH, local_result.subpixel_factor);
+    float abs_left  = fabsf(div_left);
+    float abs_right = fabsf(div_right);
+
+    if (abs_right > abs_left) turn_vote--;   // more divergence right → turn left
+    else                      turn_vote++;   // more divergence left  → turn right
+
+    VERBOSE_PRINT("OF: L=%.4f R=%.4f vote=%d\n", abs_left, abs_right, turn_vote);
+
   } else {
-    prev_safety_crossed = false;
+    prev_safety_crossed  = false;
     prev_warning_crossed = false;
   }
 
-  if (contour_estimation.contour_d_x >= 0){
+  // --- Signal 2: Edge count (catches low-texture walls the opticflow misses) ---
+  if (local_edge_center > OA_EDGE_OBSTACLE_THRESHOLD) {
     obstacle_detected = true;
+    // Only vote on direction if one side is clearly different from the other
+    int edge_diff = abs(local_edge_right - local_edge_left);
+    if (edge_diff > OA_EDGE_OBSTACLE_THRESHOLD / 4) {
+      if (local_edge_right > local_edge_left) turn_vote--;
+      else                                    turn_vote++;
+    }
+    VERBOSE_PRINT("EDGE: L=%d C=%d R=%d diff=%d vote=%d\n",
+                  local_edge_left, local_edge_center, local_edge_right, edge_diff, turn_vote);
   }
 
-  // ---------- CONFIDENCE ----------
+  // --- Signal 3: Floor area (catches obstacles/walls that occlude the floor) ---
+  if (local_floor_center < OA_FLOOR_MIN_AREA) {
+    obstacle_detected = true;
+    // Only vote on direction if one side has meaningfully more floor than the other.
+    // If both sides are equally empty (corner situation) the signal is noise — skip it.
+    int floor_diff = abs(local_floor_right - local_floor_left);
+    if (floor_diff > OA_FLOOR_MIN_AREA / 2) {
+      if (local_floor_right > local_floor_left) turn_vote++;
+      else                                      turn_vote--;
+    }
+    VERBOSE_PRINT("FLOOR: L=%d C=%d R=%d diff=%d vote=%d\n",
+                  local_floor_left, local_floor_center, local_floor_right, floor_diff, turn_vote);
+  }
+
+  // --- Signal 4: Tree detection (direction hint only — does NOT trigger obstacle) ---
+  if (contour_estimation.contour_d_x >= 0.0f) {
+    if (contour_estimation.contour_d_y > 0.0f) turn_vote--;  // tree on right → turn left
+    else                                        turn_vote++;  // tree on left  → turn right
+    VERBOSE_PRINT("TREE hint: dy=%.2f vote=%d\n", contour_estimation.contour_d_y, turn_vote);
+  }
+
+  // Commit heading increment only while in SAFE state. Once the drone is turning
+  // (SEARCH_FOR_SAFE_HEADING or OUT_OF_BOUNDS) keep the direction it already chose
+  // so noisy signals cannot flip it mid-rotation.
+  if (navigation_state == SAFE) {
+    if (turn_vote == 0) {
+      heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
+    } else {
+      heading_increment = (turn_vote > 0) ? 5.f : -5.f;
+    }
+  }
+
+  // ==========================================================================
+  // CONFIDENCE COUNTER
+  // ==========================================================================
   if (!obstacle_detected) {
     obstacle_free_confidence++;
   } else {
@@ -255,81 +329,22 @@ void obstacle_avoider_run(void)
   }
   Bound(obstacle_free_confidence, 0, max_trajectory_confidence);
 
-  float moveDistance = fminf(maxDistance, 0.2f * obstacle_free_confidence);
+  float moveDistance = fminf(maxDistance, 0.2f * obstacle_free_confidence) * speed_factor;
 
-  // ---------- STATE MACHINE ----------
+  // ==========================================================================
+  // STATE MACHINE
+  // ==========================================================================
   switch (navigation_state) {
 
     case SAFE:
       moveWaypointForward(WP_TRAJECTORY, 1.5f * moveDistance);
 
-      // Check bounds against actual drone position
-      if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY),WaypointY(WP_TRAJECTORY))) {
-        VERBOSE_PRINT("Out of bounds detected - switching to OUT_OF_BOUNDS\n");
+      if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
+        VERBOSE_PRINT("Out of bounds\n");
         navigation_state = OUT_OF_BOUNDS;
-
       } else if (obstacle_free_confidence == 0) {
-        // Choose turn direction from divergence
-        if (local_vectors != NULL && local_result.flow_vector_count >= 2) {
-          float div_left  = get_divergence_region(result->flow_vectors,
-                                                  result->flow_vector_count,
-                                                  50, 0, OA_IMG_WIDTH / 2,
-                                                  result->subpixel_factor);
-          float div_right = get_divergence_region(result->flow_vectors,
-                                                  result->flow_vector_count,
-                                                  50, OA_IMG_WIDTH / 2, OA_IMG_WIDTH,
-                                                  result->subpixel_factor);
-
-          VERBOSE_PRINT("DIVERGENCE DEBUG: pixel_left=%.6f pixel_right=%.6f tracked=%d\n",
-                        div_left, div_right, result->flow_vector_count);
-
-          float abs_left  = fabsf(div_left);
-          float abs_right = fabsf(div_right);
-          float region_diff = fabsf(abs_right - abs_left);
-          bool left_significant  = abs_left  > OA_REGION_MIN_DIVERGENCE;
-          bool right_significant = abs_right > OA_REGION_MIN_DIVERGENCE;
-          bool asymmetric = region_diff > OA_MIN_REGION_DIFF;
-
-          if (left_significant || right_significant && asymmetric) {
-            if (left_significant && right_significant && result->flow_vector_count >= 8) {
-              heading_increment = (abs_right > abs_left) ? -5.f : 5.f;
-              VERBOSE_PRINT("Both significant: left=%.4f right=%.4f turning %s\n",
-                            abs_left, abs_right,
-                            heading_increment > 0 ? "RIGHT" : "LEFT");
-            } else if (right_significant) {
-              heading_increment = -5.f;
-              VERBOSE_PRINT("Only right significant: %.4f - turning LEFT\n", abs_right);
-            } else {
-              heading_increment = 5.f;
-              VERBOSE_PRINT("Only left significant: %.4f - turning RIGHT\n", abs_left);
-            }
-          } else {
-            heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
-            VERBOSE_PRINT("Neither side significant (left=%.4f right=%.4f) - random turn %s\n",
-                          abs_left, abs_right,
-                          heading_increment > 0 ? "RIGHT" : "LEFT");
-          }
-        } else if (contour_estimation.contour_d_x >= 0){
-            VERBOSE_PRINT("Tree detected!");
-            if (contour_estimation.contour_d_y >= 0){
-              heading_increment = 5.f;
-            } else {
-              heading_increment = -5.f;
-            }
-        }
-         else {
-          heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
-          VERBOSE_PRINT("Not enough flow vectors - random turn %s\n",
-                        heading_increment > 0 ? "RIGHT" : "LEFT");
-        }
-
-        if (ttc < OA_SAFETY_TTC && ttc > 0.f) {
-          VERBOSE_PRINT("!!! EMERGENCY HOVER - TTC=%.2fs !!!\n", ttc);
-        } else {
-          VERBOSE_PRINT("Obstacle at TTC=%.2fs - turning %s\n",
-                        ttc, heading_increment > 0 ? "RIGHT" : "LEFT");
-        }
-
+        VERBOSE_PRINT("Obstacle - turning %s (vote=%d)\n",
+                      heading_increment > 0 ? "RIGHT" : "LEFT", turn_vote);
         navigation_state = OBSTACLE_FOUND;
       } else {
         moveWaypointForward(WP_GOAL, moveDistance);
@@ -338,31 +353,27 @@ void obstacle_avoider_run(void)
 
     case SEARCH_FOR_SAFE_HEADING:
       increase_nav_heading(heading_increment);
-      //moveWaypointForward(WP_GOAL, 1.5f);  // ADD THIS - move goal at new heading
-
       if (obstacle_free_confidence >= 2) {
         navigation_state = SAFE;
-        VERBOSE_PRINT("Path clear - resuming forward flight\n");
+        VERBOSE_PRINT("Path clear - resuming\n");
       }
       break;
 
     case OBSTACLE_FOUND:
       waypoint_move_here_2d(WP_GOAL);
       waypoint_move_here_2d(WP_TRAJECTORY);
-      VERBOSE_PRINT("Obstacle found - stopping and searching for safe heading\n");
+      VERBOSE_PRINT("Stopped - searching for safe heading\n");
       navigation_state = SEARCH_FOR_SAFE_HEADING;
       break;
 
     case OUT_OF_BOUNDS:
       increase_nav_heading(heading_increment);
-      moveWaypointForward(WP_TRAJECTORY, 1.5f);  // probe at new heading
-      waypoint_move_here_2d(WP_GOAL);            // keep goal here while turning
-
+      moveWaypointForward(WP_TRAJECTORY, 1.5f);
+      waypoint_move_here_2d(WP_GOAL);
       if (InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
-        increase_nav_heading(heading_increment);
         obstacle_free_confidence = 0;
         navigation_state = SEARCH_FOR_SAFE_HEADING;
-        VERBOSE_PRINT("Back inside arena - verifying path before resuming\n");
+        VERBOSE_PRINT("Back inside arena\n");
       }
       break;
 

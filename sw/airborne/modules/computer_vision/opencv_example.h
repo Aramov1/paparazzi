@@ -32,6 +32,15 @@ extern "C" {
 
 int opencv_example(char *img, int width, int height);
 
+extern int edge_count_left;
+extern int edge_count_center;
+extern int edge_count_right;
+extern int edge_count_total;
+
+extern int floor_area_left;
+extern int floor_area_center;
+extern int floor_area_right;
+
 #ifdef __cplusplus
 }
 #endif

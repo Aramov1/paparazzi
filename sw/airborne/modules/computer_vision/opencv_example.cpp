@@ -53,6 +53,10 @@ int edge_count_center = 0;
 int edge_count_right  = 0;
 int edge_count_total  = 0;
 
+int floor_area_left   = 99999;
+int floor_area_center = 99999;
+int floor_area_right  = 99999;
+
 
 int opencv_example(char *img, int width, int height)
 {
@@ -88,6 +92,15 @@ int opencv_example(char *img, int width, int height)
           }
       }
       drawContours(floorMask, contours, largestIdx, Scalar(255), -1);
+  }
+
+  // Export floor area per real-world horizontal third for obstacle_avoider.
+  // Camera is rotated 90°: rows map to the real-world horizontal axis.
+  {
+    int third_h = floorMask.rows / 3;
+    floor_area_left   = countNonZero(floorMask(Rect(0, 0,         floorMask.cols, third_h)));
+    floor_area_center = countNonZero(floorMask(Rect(0, third_h,   floorMask.cols, third_h)));
+    floor_area_right  = countNonZero(floorMask(Rect(0, 2*third_h, floorMask.cols, third_h)));
   }
 
   // Find horizon row (topmost floor pixel)
@@ -138,11 +151,12 @@ int opencv_example(char *img, int width, int height)
     edges.copyTo(maskedEdges, dilatedMask);
   }
 
-  // Count edges in left, center, right thirds
-  int third = maskedEdges.cols / 3;
-  Mat leftRegion   = maskedEdges(Rect(0,       0, third, maskedEdges.rows));
-  Mat centerRegion = maskedEdges(Rect(third,   0, third, maskedEdges.rows));
-  Mat rightRegion  = maskedEdges(Rect(2*third, 0, third, maskedEdges.rows));
+  // Count edges in left, center, right thirds.
+  // Camera is rotated 90°: rows map to the real-world horizontal axis.
+  int third = maskedEdges.rows / 3;
+  Mat leftRegion   = maskedEdges(Rect(0, 0,       maskedEdges.cols, third));
+  Mat centerRegion = maskedEdges(Rect(0, third,   maskedEdges.cols, third));
+  Mat rightRegion  = maskedEdges(Rect(0, 2*third, maskedEdges.cols, third));
 
   edge_count_left   = countNonZero(leftRegion);
   edge_count_center = countNonZero(centerRegion);

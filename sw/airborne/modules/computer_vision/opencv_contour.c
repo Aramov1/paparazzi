@@ -458,11 +458,7 @@ void find_contour(char *img, int width, int height)
     return;
   }
 
-  /* ------ 1. Title overlay ---------------------------------------- */
-  draw_text_yuv(buf, width, height, 20, 40,
-                "TREE DETECTOR ACTIVE", 235, 128, 128, 2);
-
-  /* ------ 2. YUV threshold ---------------------------------------- */
+  /* ------ 1. YUV threshold ---------------------------------------- */
   yuv_threshold(buf, mask, width, height);
 
   /* ------ 3. Median blur 5×5 -------------------------------------- */
@@ -515,32 +511,11 @@ void find_contour(char *img, int width, int height)
     }
   }
 
-  /* ------ 9. Draw detections --------------------------------------- */
-  {
-    int i;
-    for (i = 0; i < n_trees; i++) {
-      Rect2 *r  = &tree_boxes[i];
-      int    cx = r->x + r->w / 2;
-      int    cy = r->y + r->h / 2;
-      char   label[32];
-
-      draw_rect_yuv  (buf, width, height, r->x, r->y, r->w, r->h,
-                      145, 54, 34, 2);
-      draw_circle_yuv(buf, width, height, cx, cy, 4, 63, 193, 185);
-
-      snprintf(label, sizeof(label), "TREE %d", i + 1);
-      draw_text_yuv(buf, width, height,
-                    r->x, (r->y > 16 ? r->y - 16 : 4),
-                    label, 145, 54, 34, 1);
-    }
-  }
-
-  /* ------ 10. Best tree → cont_est --------------------------------- */
+  /* ------ 9. Best tree → cont_est --------------------------------- */
   if (n_trees > 0) {
     int   best_idx = 0;
     float best_score = tree_scores[0];
     float best_cx, best_cy, area, dist;
-    char  txt[160];
     int   i;
 
     for (i = 1; i < n_trees; i++) {
@@ -573,11 +548,6 @@ void find_contour(char *img, int width, int height)
                             cont_est.contour_d_z,
                             1);*/
 
-    snprintf(txt, sizeof(txt), "TREES=%d MAIN cx=%.1f cy=%.1f area=%.0f",
-             n_trees, best_cx, best_cy, area);
-    draw_text_yuv(buf, width, height, 20, height - 20,
-                  txt, 235, 128, 128, 1);
-
   } else {
     cont_est.contour_d_x = -1.0f;
     cont_est.contour_d_y =  0.0f;
@@ -590,8 +560,6 @@ void find_contour(char *img, int width, int height)
                             cont_est.contour_d_z,
                             0);*/
 
-    draw_text_yuv(buf, width, height, 20, height - 20,
-                  "NO TREE DETECTED", 235, 128, 128, 1);
   }
 
   /* ------ 11. Free working buffers --------------------------------- */
