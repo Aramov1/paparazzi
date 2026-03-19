@@ -72,8 +72,12 @@
       <define name="EDGE_DRAW" value="1"/>
     </module>
 
-    <!-- Obstacle avoidance via TTC -->
+    <!-- Obstacle sensor fusion: reads opticflow/edge/floor/contour, publishes ABI -->
     <module name="obstacle_avoider"/>
+
+    <!-- Navigation: perimeter following + obstacle avoidance state machine -->
+    <module name="cyberzoo_perimeter_waypoints"/>
+    <module name="waypoint_navigation"/>
 
     <!-- Streaming -->
     <module name="video_rtp_stream">
