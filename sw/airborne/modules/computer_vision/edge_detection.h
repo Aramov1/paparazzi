@@ -33,6 +33,9 @@ int edge_detection_run(char *img, int width, int height);
 extern int edge_thresh;
 extern int green_thresh_value;
 extern int floor_margin;
+extern int floor_area_left;
+extern int floor_area_center;
+extern int floor_area_right;
 
 #ifdef __cplusplus
 }

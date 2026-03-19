@@ -11,7 +11,7 @@
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/detect_contour.h"
 #include "modules/computer_vision/opencv_contour.h"
-#include "modules/computer_vision/opencv_example.h"
+#include "modules/computer_vision/cv_edge_detection.h"
 #include BOARD_CONFIG
 
 #include <math.h>
