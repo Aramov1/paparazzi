@@ -62,7 +62,7 @@
 
     <module name="cv_detect_contour">
       <define name="DETECT_CONTOUR_CAMERA" value="front_camera"/>
-      <define name="DETECT_CONTOUR_FPS" value="0"/>
+      <define name="DETECT_CONTOUR_FPS" value="1"/>
     </module>
 
     <!-- Edge detection -->

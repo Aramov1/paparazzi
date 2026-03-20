@@ -41,7 +41,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-struct contour_estimation cont_est;
+struct contour_estimation cont_est = { .contour_d_x = -1.0f };
 struct contour_threshold  cont_thres;
 
 /* ================================================================

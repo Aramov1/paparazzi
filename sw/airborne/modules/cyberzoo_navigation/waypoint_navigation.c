@@ -80,7 +80,7 @@ float oa_inner_edge_margin_m = 0.4f;     // apply edge-aware turn selection when
 int16_t oa_rejoin_forward_cycles = 4;    // keep following safe WP_TRAJECTORY this many REJOIN_PATH cycles before path targetting
 
 // define and initialise global variables
-enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;
+enum navigation_state_t navigation_state = SAFE;
 int32_t color_count = 0;               // orange color count from color filter for obstacle detection
 int16_t obstacle_free_confidence = 0;  // certainty that forward direction is safe
 float heading_increment = 15.f;         // heading angle increment [deg]
