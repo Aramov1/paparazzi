@@ -43,6 +43,10 @@
 #define CONTOUR_UPPER_V 123
 #endif
 
+// #ifndef CV_YUV2BGR_Y422
+// #define CV_YUV2BGR_Y422 cv::COLOR_YUV2BGR_Y422
+// #endif
+
 struct contour_estimation {
   int   gate_detected;
   float contour_d_x;

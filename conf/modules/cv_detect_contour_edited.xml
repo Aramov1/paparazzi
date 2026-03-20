@@ -10,20 +10,20 @@
   </header>
   <init fun="detect_contour_edited_init()"/>
   <makefile target="nps">
-  <file name="detect_contour_edited.c"/>
-  <file name="opencv_contour_edited.cpp"/>
-  <file name="opencv_image_functions.cpp"/>
-  <flag name="CXXFLAGS" value="I/usr/include/opencv4"/>
-  <flag name="LDFLAGS" value="lopencv_imgproc"/>
-  <flag name="LDFLAGS" value="lopencv_core"/>
-  <flag name="LDFLAGS" value="lstdc++"/>
-</makefile>
+    <file name="detect_contour_edited.c"/>
+    <file name="opencv_contour_edited.cpp"/>
+    <file name="opencv_image_functions.cpp"/>
+    <flag name="CXXFLAGS" value="I/usr/include/opencv4"/>
+    <flag name="LDFLAGS" value="lopencv_imgproc"/>
+    <flag name="LDFLAGS" value="lopencv_core"/>
+    <flag name="LDFLAGS" value="lstdc++"/>
+  </makefile>
   <makefile target="ap">
     <file name="detect_contour_edited.c"/>
     <file name="opencv_contour_edited.cpp"/>
     <file name="opencv_image_functions.cpp"/>
-    <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install_arm/include/opencv4"/>
-    <flag name="LDFLAGS" value="L/usr/lib/gcc-cross/arm-linux-gnueabi/9"/>
+    <flag name="CXXFLAGS" value="I$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install_arm/include"/>
+    <flag name="LDFLAGS" value="L/usr/lib/gcc-cross/arm-linux-gnueabi/11"/>
     <flag name="LDFLAGS" value="l:libstdc++.a"/>
     <flag name="LDFLAGS" value="L$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install_arm/lib"/>
     <flag name="LDFLAGS" value="lopencv_world"/>
@@ -32,6 +32,7 @@
     <flag name="LDFLAGS" value="ldl"/>
     <flag name="LDFLAGS" value="lm"/>
     <flag name="LDFLAGS" value="lpthread"/>
-    <flag name="LDFLAGS" value="lzlib"/>
+    <flag name="LDFLAGS" value="L$(PAPARAZZI_SRC)/sw/ext/opencv_bebop/install_arm/share/OpenCV/3rdparty/lib"/>
+    <flag name="LDFLAGS" value="l:libzlib.a"/>
   </makefile>
 </module>

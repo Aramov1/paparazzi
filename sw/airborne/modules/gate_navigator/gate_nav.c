@@ -16,8 +16,8 @@ static uint32_t cross_timer = 0;
 static int detection_confidence = 0;
 static float locked_heading = 0.f;
 #define DETECTION_CONFIDENCE_THRESHOLD 6
-#define CROSS_TIMEOUT    150    // ~2.5s at 60Hz
-#define CROSS_AREA_THRESHOLD 5000.f  // px^2 — trigger crossing when close enough
+#define CROSS_TIMEOUT    180    // ~2.5s at 60Hz
+#define CROSS_AREA_THRESHOLD 9000.f  // px^2 — trigger crossing when close enough
 int gate_tracking = 0;
 
 extern void contour_reset_tracking(void);
@@ -115,9 +115,15 @@ void gate_navigator_periodic(void)
         float psi = stateGetNedToBodyEulers_f()->psi;
         float target = psi + RadOfDeg(filtered_y * 30.0f);
         FLOAT_ANGLE_NORMALIZE(target);
-        locked_heading = locked_heading * 0.85f + target * 0.15f;
+          
+        // Fix: interpolate using angle difference to handle wrap-around
+        float diff = target - locked_heading;
+        FLOAT_ANGLE_NORMALIZE(diff);
+        locked_heading = locked_heading + 0.15f * diff;
+        FLOAT_ANGLE_NORMALIZE(locked_heading);
+          
         printf("[GATE_NAV] TRACK: psi=%.2f fy=%.2f target=%.2f locked=%.2f\n",
-              psi, filtered_y, target, locked_heading);
+            psi, filtered_y, target, locked_heading);
       }
 
       nav.heading = locked_heading;
@@ -133,7 +139,7 @@ void gate_navigator_periodic(void)
       }
 
       // Improvement 5: use area threshold for CROSS trigger
-      if (fresh_detection && cont_est.contour_area > CROSS_AREA_THRESHOLD && fabsf(filtered_y) < 0.10f) {
+      if (fresh_detection && cont_est.contour_area > CROSS_AREA_THRESHOLD && fabsf(filtered_y) < 0.15f) {
         locked_heading = stateGetNedToBodyEulers_f()->psi;
         nav_state    = CROSS;
         cross_timer  = 0;

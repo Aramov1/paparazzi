@@ -14,7 +14,6 @@ extern int gate_tracking;
 
 static float last_gate_cx = -1.f;
 static float last_gate_cy = -1.f;
-
 RNG rng(12345);
 
 
@@ -24,8 +23,8 @@ void yuv_opencv_to_yuv422(Mat image, char *img, int width, int height)
     for (int col = 0; col < width; col++) {
       cv::Vec3b &c = image.at<cv::Vec3b>(row, col);
       int i = row * width + col;
-      img[2 * i + 1] = c[0];
-      img[2 * i] = col % 2 ? c[1] : c[2];
+      img[2 * i]     = c[0];                    // Y in position 0
+      img[2 * i + 1] = col % 2 ? c[2] : c[1];  // U on even, V on odd
     }
   }
 }
@@ -56,16 +55,18 @@ void find_contour(char *img, int width, int height)
 {
 
   Mat M(height, width, CV_8UC2, img);
-  cvtColor(M, M, cv::COLOR_YUV2RGB_Y422);
-  cvtColor(M, M, cv::COLOR_RGB2YUV);
+  Mat image;
+  cvtColor(M, image, CV_YUV2BGR_Y422);  // Paparazzi standard UYVY→BGR
+  Mat yuv;
+  cvtColor(image, yuv, cv::COLOR_BGR2YUV);
 
   Mat thresh_image;
-  inRange(M,
+  inRange(yuv,
           Scalar(CONTOUR_LOWER_Y, CONTOUR_LOWER_U, CONTOUR_LOWER_V),
           Scalar(CONTOUR_UPPER_Y, CONTOUR_UPPER_U, CONTOUR_UPPER_V),
           thresh_image);
 
-  Mat kernel = getStructuringElement(MORPH_RECT, Size(15, 15));
+  Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
   morphologyEx(thresh_image, thresh_image, MORPH_CLOSE, kernel);
 
   vector<vector<Point>> contours;
@@ -80,7 +81,7 @@ void find_contour(char *img, int width, int height)
   // Build overlay base (green threshold)
   Mat overlay(height, width, CV_8UC3);
   if (show_threshold_overlay) {
-    cvtColor(M, overlay, cv::COLOR_YUV2RGB);
+    overlay = image.clone();
     for (int row = 0; row < height; row++) {
       for (int col = 0; col < width; col++) {
         if (thresh_image.at<uint8_t>(row, col) > 0) {
@@ -94,9 +95,7 @@ void find_contour(char *img, int width, int height)
 
   auto write_overlay = [&]() {
     if (show_threshold_overlay) {
-      Mat overlay_yuv;
-      cvtColor(overlay, overlay_yuv, cv::COLOR_RGB2YUV);
-      yuv_opencv_to_yuv422(overlay_yuv, img, width, height);
+      colorbgr_opencv_to_yuv422(overlay, img, width, height);
     }
   };
 
@@ -108,16 +107,27 @@ void find_contour(char *img, int width, int height)
   
   bool tracking = (gate_tracking == 1);
 
-  float ratio_max  = tracking ? 3.0f          : 2.5f;
-  float total_max  = tracking ? 35000.f        : 25000.f;
-  float blob_max   = tracking ? 18000.f        : 12000.f;
-  float sep_min    = tracking ? height * 0.08f : height * 0.15f;
-  float sep_max    = tracking ? height * 0.85f : height * 0.70f;
-  float xdiff_max  = tracking ? width  * 0.70f : width  * 0.50f;
-  float asp_min    = tracking ? 1.0f           : 1.5f;
-  float asp_max    = tracking ? 12.0f          : 8.0f;
-  float asp_r_max  = tracking ? 2.5f           : 1.2f;
-  float floor_thr  = tracking ? 0.99f          : 0.97f;
+  // float ratio_max  = tracking ? 2.0f          : 1.7f;
+  // float total_max  = tracking ? 25000.f        : 25000.f;
+  // float blob_max   = tracking ? 12000.f        : 12000.f;
+  // float sep_min    = tracking ? height * 0.08f : height * 0.15f;
+  // float sep_max    = tracking ? height * 0.85f : height * 0.70f;
+  // float xdiff_max  = tracking ? width  * 0.25f : width  * 0.15f;
+  // float asp_min    = tracking ? 1.0f           : 1.5f;
+  // float asp_max    = tracking ? 8.0f          : 3.5f;
+  // float asp_r_max  = tracking ? 1.8f           : 1.2f;
+  // float floor_thr  = tracking ? 0.99f          : 0.97f;
+
+  float ratio_max  = 1.7f;
+  float total_max  = 25000.f;
+  float blob_max   = 12000.f;
+  float sep_min    = height * 0.15f;
+  float sep_max    = height * 0.70f;
+  float xdiff_max  = width  * 0.15f;
+  float asp_min    = 1.5f;
+  float asp_max    = 3.5f;
+  float asp_r_max  = 1.2f;
+  float floor_thr  = 0.97f;
 
   Rect best_top, best_bottom;
   float best_score = 1e9f;
