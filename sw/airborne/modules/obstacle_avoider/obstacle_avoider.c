@@ -24,6 +24,10 @@
 #include <pthread.h>
 #include <string.h>
 
+#if PERIODIC_TELEMETRY
+#include "modules/datalink/telemetry.h"
+#endif
+
 extern pthread_mutex_t opticflow_mutex;
 
 struct contour_estimation contour_estimation;
@@ -51,7 +55,30 @@ int   OA_FLOOR_MIN_AREA          = 2000;
 // module's threshold (0.18 * camera_w * camera_h) at any camera resolution.
 #define OA_OBSTACLE_QUALITY 100000
 
-void obstacle_avoider_init(void) {}
+static float   oa_ttc        = 0.f;
+static float   oa_div_left   = 0.f;
+static float   oa_div_right  = 0.f;
+static float   oa_contour_dy = 0.f;
+static int32_t oa_turn_vote  = 0;
+static uint8_t oa_obstacle   = 0;
+
+#if PERIODIC_TELEMETRY
+static void oa_telem_send(struct transport_tx *trans, struct link_device *dev)
+{
+  pprz_msg_send_OA_STATUS(trans, dev, AC_ID,
+    &oa_ttc, &oa_div_left, &oa_div_right,
+    &edge_count_left, &edge_count_center, &edge_count_right,
+    &floor_area_left, &floor_area_center, &floor_area_right,
+    &oa_contour_dy, &oa_turn_vote, &oa_obstacle);
+}
+#endif
+
+void obstacle_avoider_init(void)
+{
+#if PERIODIC_TELEMETRY
+  register_periodic_telemetry(DefaultPeriodic, PPRZ_MSG_ID_OA_STATUS, oa_telem_send);
+#endif
+}
 
 void obstacle_avoider_run(void)
 {
@@ -101,6 +128,10 @@ void obstacle_avoider_run(void)
                                             local_result.flow_vector_count,
                                             50, 2 * third, OA_IMG_WIDTH,
                                             local_result.subpixel_factor);
+    oa_ttc       = ttc;
+    oa_div_left  = div_left;
+    oa_div_right = div_right;
+
     if (fabsf(div_right) > OA_REGION_MIN_DIVERGENCE ||
         fabsf(div_left)  > OA_REGION_MIN_DIVERGENCE) {
       if (fabsf(div_right) > fabsf(div_left)) turn_vote--;  // obstacle right → turn left
@@ -140,6 +171,11 @@ void obstacle_avoider_run(void)
     VERBOSE_PRINT("CONTOUR obstacle: dy=%.2f vote=%d\n",
                   contour_estimation.contour_d_y, turn_vote);
   }
+
+  // --- Update telemetry state ---
+  oa_contour_dy = contour_estimation.contour_d_y;
+  oa_turn_vote  = (int32_t)turn_vote;
+  oa_obstacle   = obstacle_detected ? 1 : 0;
 
   // --- Publish to navigation module ---
   int32_t quality   = obstacle_detected ? OA_OBSTACLE_QUALITY : 0;
