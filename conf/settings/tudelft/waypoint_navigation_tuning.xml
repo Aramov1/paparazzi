@@ -1,0 +1,29 @@
+<!DOCTYPE settings SYSTEM "settings.dtd">
+<settings target="ap|nps">
+  <dl_settings>
+
+    <dl_settings NAME="WaypointNavigation">
+      <!-- Navigation program selection -->
+      <dl_setting var="nav_program_mode" min="0" step="1" max="2"
+                  module="waypoint_navigation" shortname="nav_mode"
+                  values="SimpleReactive|WaypointMachine|Perimeter"/>
+
+      <!-- Obstacle detection thresholds -->
+      <dl_setting var="oa_color_count_frac" min="0" step="0.01" max="0.5"
+                  module="waypoint_navigation" shortname="detect_frac"/>
+      <dl_setting var="oa_clear_color_count_frac" min="0" step="0.01" max="0.5"
+                  module="waypoint_navigation" shortname="clear_frac"/>
+
+      <!-- Speed and heading -->
+      <dl_setting var="oa_safe_max_speed" min="0.0" step="0.05" max="2.0"
+                  module="waypoint_navigation" shortname="max_speed"/>
+      <dl_setting var="oa_heading_slew_deg" min="0.5" step="0.5" max="45.0"
+                  module="waypoint_navigation" shortname="heading_slew"/>
+
+      <!-- Rejoin behaviour -->
+      <dl_setting var="oa_rejoin_forward_cycles" min="0" step="1" max="50"
+                  module="waypoint_navigation" shortname="rejoin_fwd"/>
+    </dl_settings>
+
+  </dl_settings>
+</settings>

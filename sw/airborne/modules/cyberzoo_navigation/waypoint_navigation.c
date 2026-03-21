@@ -56,6 +56,10 @@ static float clampf(float v, float lo, float hi);
 /* currently, using waypoint_navigation.c, the drone avoids abstacles at the same time as following the perimeter of the cyberzoo, however, when it reaches the SEARCH_FOR_SAFE_HEADING state, it keeps moving slightly forward at the same time as it turn to find a safe heading, and will bump into the obstacle, make it such that it will move faster out of the way of the obstacle */
 
 // define settings
+#ifndef NAV_PROGRAM_MODE
+#define NAV_PROGRAM_MODE 2
+#endif
+int16_t nav_program_mode = NAV_PROGRAM_MODE;  // 0=SimpleReactive 1=WaypointMachine 2=Perimeter
 float oa_color_count_frac = 0.18f;       // detect threshold (orange fraction)
 float oa_clear_color_count_frac = 0.18f; // clear threshold (hysteresis)
 float oa_safe_max_speed = 0.3f;          // low cruise speed [m/s] for cautious testing
@@ -84,6 +88,13 @@ int16_t blocked_heading_counter = 0;   // cycles left in blocked heading memory
 uint8_t edge_turn_bias_active = false; // when true, keep turning away from geofence edge
 float edge_turn_bias_sign = 1.f;       // +1 or -1 turn sign bias when edge_turn_bias_active
 
+// --- SimpleReactive mode (nav_program_mode == 0) private state ---
+// Mirrors old_logic.c exactly. Uses color_count / sensor_turn_vote from ABI.
+enum sr_nav_state_t { SR_SAFE, SR_OBSTACLE_FOUND, SR_SEARCH, SR_OUT_OF_BOUNDS };
+static enum sr_nav_state_t sr_navigation_state = SR_SAFE;
+static float   sr_heading_increment = 5.f;
+static int16_t sr_confidence        = 0;
+
 /*
  * This next section defines an ABI messaging event (http://wiki.paparazziuav.org/wiki/ABI), necessary
  * any time data calculated in another module needs to be accessed. Including the file where this external
@@ -104,6 +115,79 @@ static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
 {
   color_count = quality;
   sensor_turn_vote = pixel_x;
+}
+
+/*
+ * SimpleReactive navigation (nav_program_mode == 0).
+ * Direct port of old_logic.c state machine. Uses color_count and sensor_turn_vote
+ * from the ABI callback (populated by obstacle_avoider.c at 20 Hz).
+ */
+static void simple_reactive_periodic(void)
+{
+  const int16_t SR_MAX_CONFIDENCE = 5;
+  const float   SR_MAX_DISTANCE   = 2.25f;
+
+  // Confidence: +1 when clear, -3 when obstacle (matches old_logic.c)
+  if (color_count == 0) {
+    sr_confidence++;
+  } else {
+    sr_confidence -= 3;
+  }
+  Bound(sr_confidence, 0, SR_MAX_CONFIDENCE);
+
+  float moveDistance = fminf(SR_MAX_DISTANCE, 0.2f * sr_confidence);
+
+  // Choose turn direction only while in SAFE (matches old_logic.c timing)
+  if (sr_navigation_state == SR_SAFE) {
+    if (sensor_turn_vote == 0) {
+      sr_heading_increment = (rand() % 2 == 0) ? 5.f : -5.f;
+    } else {
+      sr_heading_increment = (sensor_turn_vote > 0) ? 5.f : -5.f;
+    }
+  }
+
+  switch (sr_navigation_state) {
+    case SR_SAFE:
+      moveWaypointForward(WP_TRAJECTORY, 1.5f * moveDistance);
+      if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
+        sr_navigation_state = SR_OUT_OF_BOUNDS;
+      } else if (sr_confidence == 0) {
+        sr_navigation_state = SR_OBSTACLE_FOUND;
+      } else {
+        moveWaypointForward(WP_GOAL, moveDistance);
+      }
+      break;
+
+    case SR_OBSTACLE_FOUND:
+      waypoint_move_here_2d(WP_GOAL);
+      waypoint_move_here_2d(WP_TRAJECTORY);
+      sr_navigation_state = SR_SEARCH;
+      break;
+
+    case SR_SEARCH:
+      increase_nav_heading(sr_heading_increment);
+      if (sr_confidence >= 2) {
+        sr_navigation_state = SR_SAFE;
+      }
+      break;
+
+    case SR_OUT_OF_BOUNDS:
+      increase_nav_heading(sr_heading_increment);
+      moveWaypointForward(WP_TRAJECTORY, 1.5f);
+      waypoint_move_here_2d(WP_GOAL);
+      if (InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
+        sr_confidence = 0;
+        sr_navigation_state = SR_SEARCH;
+      }
+      break;
+  }
+
+  // Export state for OA_STATUS telemetry (nav_state field)
+  navigation_state = (sr_navigation_state == SR_SAFE)         ? SAFE :
+                     (sr_navigation_state == SR_SEARCH)        ? SEARCH_FOR_SAFE_HEADING :
+                     (sr_navigation_state == SR_OUT_OF_BOUNDS) ? OUT_OF_BOUNDS :
+                                                                  OBSTACLE_FOUND;
+  obstacle_free_confidence = sr_confidence;
 }
 
 /*
@@ -133,6 +217,13 @@ void orange_avoider_periodic(void)
     return;
   }
 
+  // Mode 0: SimpleReactive — fully self-contained, skip shared state machine
+  if (nav_program_mode == 0) {
+    NavSetMaxSpeed(oa_safe_max_speed);
+    simple_reactive_periodic();
+    return;
+  }
+
   int32_t color_count_threshold = oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
   int32_t clear_color_count_threshold = oa_clear_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
 
@@ -157,9 +248,19 @@ void orange_avoider_periodic(void)
 
   switch (navigation_state) {
     case SAFE:
-      setGoalToPathWaypoint();
-      setHeadingToPathWaypointLimited(oa_heading_slew_deg);
-
+      if (nav_program_mode == 2) {
+        // Mode 2: Perimeter — track WP_PATH set by cyberzoo_perimeter_waypoints
+        setGoalToPathWaypoint();
+        setHeadingToPathWaypointLimited(oa_heading_slew_deg);
+      } else {
+        // Mode 1: WaypointMachine — full state machine, cruise forward freely
+        moveWaypointForward(WP_TRAJECTORY, 0.5f);
+        if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
+          navigation_state = OUT_OF_BOUNDS;
+          break;
+        }
+        moveWaypointForward(WP_GOAL, 0.3f);
+      }
       if (color_count >= color_count_threshold || obstacle_free_confidence == 0) {
         navigation_state = OBSTACLE_FOUND;
       }
@@ -245,8 +346,14 @@ void orange_avoider_periodic(void)
         break;
       }*/
 
-      setGoalToPathWaypoint();
-      setHeadingToPathWaypointLimited(oa_heading_slew_deg);
+      if (nav_program_mode == 2) {
+        // Mode 2: Perimeter — steer back toward WP_PATH
+        setGoalToPathWaypoint();
+        setHeadingToPathWaypointLimited(oa_heading_slew_deg);
+      } else {
+        // Mode 1: WaypointMachine — continue forward, no perimeter
+        moveWaypointForward(WP_GOAL, 0.3f);
+      }
 
       if (color_count >= color_count_threshold) {
         VERBOSE_PRINT("detected obstacle and returning to last safe heading");
@@ -255,14 +362,13 @@ void orange_avoider_periodic(void)
         waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_TRAJECTORY)),
                            POS_BFP_OF_REAL(WaypointY(WP_TRAJECTORY)));
 
-
         // navigation_state = OBSTACLE_FOUND;
         break;
       }
 
       if (rejoin_counter >= rejoin_hold_cycles &&
           obstacle_free_confidence >= oa_rejoin_clear_confidence &&
-          isRejoinGeometrySatisfied()) {
+          (nav_program_mode != 2 || isRejoinGeometrySatisfied())) {
         navigation_state = SAFE;
       }
       break;

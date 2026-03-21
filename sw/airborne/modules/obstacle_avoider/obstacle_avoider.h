@@ -17,7 +17,6 @@ extern uint8_t oa_use_opticflow;
 extern uint8_t oa_use_edge;
 extern uint8_t oa_use_floor;
 extern uint8_t oa_use_tree;
-extern uint8_t oa_nav_mode;
 
 #define PRINT(string,...) fprintf(stderr, "[obstacle_avoider->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
 #define VERBOSE_PRINT PRINT

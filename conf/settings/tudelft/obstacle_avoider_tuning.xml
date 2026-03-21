@@ -1,0 +1,30 @@
+<!DOCTYPE settings SYSTEM "settings.dtd">
+<settings target="ap|nps">
+  <dl_settings>
+
+    <dl_settings NAME="ObstacleAvoider">
+      <!-- Sensor enable/disable -->
+      <dl_setting var="oa_use_opticflow" min="0" step="1" max="1"
+                  module="obstacle_avoider" shortname="use_opticflow"
+                  values="Off|On"/>
+      <dl_setting var="oa_use_edge" min="0" step="1" max="1"
+                  module="obstacle_avoider" shortname="use_edge"
+                  values="Off|On"/>
+      <dl_setting var="oa_use_floor" min="0" step="1" max="1"
+                  module="obstacle_avoider" shortname="use_floor"
+                  values="Off|On"/>
+      <dl_setting var="oa_use_tree" min="0" step="1" max="1"
+                  module="obstacle_avoider" shortname="use_tree"
+                  values="Off|On"/>
+
+      <!-- Tuning thresholds -->
+      <dl_setting var="OA_WARNING_TTC" min="1.0" step="0.5" max="15.0"
+                  module="obstacle_avoider" shortname="warn_ttc"/>
+      <dl_setting var="OA_EDGE_OBSTACLE_THRESHOLD" min="500" step="500" max="20000"
+                  module="obstacle_avoider" shortname="edge_thresh"/>
+      <dl_setting var="OA_FLOOR_MIN_AREA" min="0" step="200" max="10000"
+                  module="obstacle_avoider" shortname="floor_min"/>
+    </dl_settings>
+
+  </dl_settings>
+</settings>

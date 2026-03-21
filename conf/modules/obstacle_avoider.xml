@@ -7,13 +7,11 @@ Airframe defines (all optional, set compile-time defaults):
   OA_USE_EDGE       1|0  enable edge-count signal (default 1)
   OA_USE_FLOOR      1|0  enable floor-area signal (default 1)
   OA_USE_TREE       1|0  enable tree-contour signal (default 1)
-  OA_NAV_MODE       0|1  0=state machine, 1=simple reactive (default 0)
     </description>
   </doc>
   <settings>
     <dl_settings>
       <dl_settings name="Obstacle_Avoider_Settings">
-        <dl_setting var="oa_nav_mode"       min="0" step="1" max="1" shortname="nav_mode"     module="obstacle_avoider/obstacle_avoider" values="StateMachine|SimpleReactive"/>
         <dl_setting var="oa_use_opticflow"  min="0" step="1" max="1" shortname="use_opticflow" module="obstacle_avoider/obstacle_avoider" values="Off|On"/>
         <dl_setting var="oa_use_edge"       min="0" step="1" max="1" shortname="use_edge"      module="obstacle_avoider/obstacle_avoider" values="Off|On"/>
         <dl_setting var="oa_use_floor"      min="0" step="1" max="1" shortname="use_floor"     module="obstacle_avoider/obstacle_avoider" values="Off|On"/>

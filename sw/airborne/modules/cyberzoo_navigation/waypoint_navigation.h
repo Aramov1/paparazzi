@@ -15,6 +15,7 @@ extern enum navigation_state_t navigation_state;
 extern int16_t obstacle_free_confidence;
 
 // settings
+extern int16_t nav_program_mode;
 extern float oa_color_count_frac;
 extern float oa_clear_color_count_frac;
 extern float oa_safe_max_speed;

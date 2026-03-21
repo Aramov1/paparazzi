@@ -62,15 +62,11 @@ int   OA_FLOOR_MIN_AREA          = 2000;
 #ifndef OA_USE_TREE
 #define OA_USE_TREE 1
 #endif
-#ifndef OA_NAV_MODE
-#define OA_NAV_MODE 0
-#endif
 
 uint8_t oa_use_opticflow = OA_USE_OPTICFLOW;
 uint8_t oa_use_edge      = OA_USE_EDGE;
 uint8_t oa_use_floor     = OA_USE_FLOOR;
 uint8_t oa_use_tree      = OA_USE_TREE;
-uint8_t oa_nav_mode      = OA_NAV_MODE;
 
 // Unique sender ID — waypoint_navigation binds to ABI_BROADCAST so it
 // receives from any sender without extra configuration.
