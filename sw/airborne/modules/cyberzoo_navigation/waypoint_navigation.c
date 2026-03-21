@@ -53,14 +53,6 @@ static uint8_t getClosestInnerEdgeInward(float *inward_x, float *inward_y, float
 static float angle_diff(float a, float b);
 static float clampf(float v, float lo, float hi);
 
-enum navigation_state_t {
-  SAFE,
-  OBSTACLE_FOUND,
-  SEARCH_FOR_SAFE_HEADING,
-  REJOIN_PATH,
-  OUT_OF_BOUNDS
-};
-
 /* currently, using waypoint_navigation.c, the drone avoids abstacles at the same time as following the perimeter of the cyberzoo, however, when it reaches the SEARCH_FOR_SAFE_HEADING state, it keeps moving slightly forward at the same time as it turn to find a safe heading, and will bump into the obstacle, make it such that it will move faster out of the way of the obstacle */
 
 // define settings

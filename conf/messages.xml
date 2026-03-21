@@ -2410,6 +2410,8 @@
       <field name="ttc"          type="float"  unit="s"   >time-to-collision from opticflow</field>
       <field name="div_left"     type="float"              >regional divergence left</field>
       <field name="div_right"    type="float"              >regional divergence right</field>
+      <field name="div_size"     type="float"              >raw opticflow divergence (SIZE_DIV)</field>
+      <field name="tracked_cnt"  type="uint16"             >Lucas-Kanade tracked corner count</field>
       <field name="edge_left"    type="int32"              >edge pixel count left</field>
       <field name="edge_center"  type="int32"              >edge pixel count center</field>
       <field name="edge_right"   type="int32"              >edge pixel count right</field>
@@ -2419,6 +2421,8 @@
       <field name="contour_dy"   type="float"              >tree contour lateral offset</field>
       <field name="turn_vote"    type="int32"              >combined turn direction vote (+right -left)</field>
       <field name="obstacle"     type="uint8"              >1=obstacle detected 0=clear</field>
+      <field name="nav_state"    type="uint8"              >navigation state: 0=SAFE 1=OBS_FOUND 2=SEARCH 3=REJOIN 4=OOB</field>
+      <field name="ofc"          type="int16"              >obstacle free confidence</field>
     </message>
 
     <message name="GPS_RELPOS" id="251">

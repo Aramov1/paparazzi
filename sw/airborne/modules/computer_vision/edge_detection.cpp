@@ -46,6 +46,11 @@ int green_thresh_value = GREEN_THRESH_VALUE;
 #endif
 int floor_margin = FLOOR_MARGIN;
 
+#ifndef FLOOR_MIN_PIXELS
+#define FLOOR_MIN_PIXELS 500
+#endif
+int floor_min_pixels = FLOOR_MIN_PIXELS;
+
 #ifndef EDGE_DRAW
 #define EDGE_DRAW 0
 #endif
@@ -117,7 +122,7 @@ int edge_detection_run(char *img, int width, int height)
 
   // Fallback to full image if no green detected, or too few pixels to be a real floor
   int total_floor = floor_area_left + floor_area_center + floor_area_right;
-  bool green_found = (leftBound <= rightBound) && (total_floor >= 500);
+  bool green_found = (leftBound <= rightBound) && (total_floor >= floor_min_pixels);
   if (!green_found) {
     floor_area_left = floor_area_center = floor_area_right = 99999;
   }

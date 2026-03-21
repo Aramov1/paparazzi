@@ -17,6 +17,7 @@
         <dl_setting var="edge_thresh" min="10" step="5" max="100" shortname="edge_thresh"/>
         <dl_setting var="green_thresh_value" min="100" step="10" max="220" shortname="green_val"/>
         <dl_setting var="floor_margin" min="0" step="10" max="300" shortname="floor_margin"/>
+        <dl_setting var="floor_min_pixels" min="0" step="50" max="2000" shortname="floor_min_px"/>
         <dl_setting var="edge_draw" min="0" step="1" max="1" shortname="edge_draw"/>
       </dl_settings>
     </dl_settings>

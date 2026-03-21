@@ -12,6 +12,7 @@
 #include "obstacle_avoider.h"
 #include "modules/core/abi.h"
 #include "modules/computer_vision/cv_edge_detection.h"
+#include "modules/cyberzoo_navigation/waypoint_navigation.h"
 #include "modules/computer_vision/detect_contour.h"
 #include "modules/computer_vision/opencv_contour.h"
 #include "autopilot.h"
@@ -55,21 +56,26 @@ int   OA_FLOOR_MIN_AREA          = 2000;
 // module's threshold (0.18 * camera_w * camera_h) at any camera resolution.
 #define OA_OBSTACLE_QUALITY 100000
 
-static float   oa_ttc        = 0.f;
-static float   oa_div_left   = 0.f;
-static float   oa_div_right  = 0.f;
-static float   oa_contour_dy = 0.f;
-static int32_t oa_turn_vote  = 0;
-static uint8_t oa_obstacle   = 0;
+static float    oa_ttc        = 0.f;
+static float    oa_div_left   = 0.f;
+static float    oa_div_right  = 0.f;
+static float    oa_div_size   = 0.f;
+static uint16_t oa_tracked_cnt = 0;
+static float    oa_contour_dy = 0.f;
+static int32_t  oa_turn_vote  = 0;
+static uint8_t  oa_obstacle   = 0;
 
 #if PERIODIC_TELEMETRY
 static void oa_telem_send(struct transport_tx *trans, struct link_device *dev)
 {
+  uint8_t nav_state_u8 = (uint8_t)navigation_state;
   pprz_msg_send_OA_STATUS(trans, dev, AC_ID,
     &oa_ttc, &oa_div_left, &oa_div_right,
+    &oa_div_size, &oa_tracked_cnt,
     &edge_count_left, &edge_count_center, &edge_count_right,
     &floor_area_left, &floor_area_center, &floor_area_right,
-    &oa_contour_dy, &oa_turn_vote, &oa_obstacle);
+    &oa_contour_dy, &oa_turn_vote, &oa_obstacle,
+    &nav_state_u8, &obstacle_free_confidence);
 }
 #endif
 
@@ -97,6 +103,15 @@ void obstacle_avoider_run(void)
   }
   pthread_mutex_unlock(&opticflow_mutex);
 
+  // --- Update raw opticflow telemetry unconditionally ---
+  oa_div_size    = local_result.div_size;
+  oa_tracked_cnt = local_result.tracked_cnt;
+  if (local_result.fps > 0.f && fabsf(local_result.div_size) > 1e-6f) {
+    oa_ttc = 1.0f / (fabsf(local_result.div_size) * local_result.fps);
+  } else {
+    oa_ttc = 9999.f;
+  }
+
   // --- Read tree/contour detection (thread-safe copy) ---
   pthread_mutex_lock(&contour_mutex);
   contour_estimation.contour_d_x = cont_est.contour_d_x;
@@ -113,22 +128,21 @@ void obstacle_avoider_run(void)
       local_vectors != NULL &&
       fabsf(local_result.div_size) > OA_MIN_DIVERGENCE) {
 
-    float ttc = 1.0f / (fabsf(local_result.div_size) * local_result.fps);
+    float ttc = oa_ttc;  // already computed unconditionally above
     if (ttc < OA_WARNING_TTC) {
       obstacle_detected = true;
       VERBOSE_PRINT("TTC obstacle: %.2fs\n", ttc);
     }
 
     int third = OA_IMG_WIDTH / 3;
-    float div_left  = get_divergence_region(local_result.flow_vectors,
+    float div_left  = get_divergence_region(local_vectors,
                                             local_result.flow_vector_count,
                                             50, 0, third,
                                             local_result.subpixel_factor);
-    float div_right = get_divergence_region(local_result.flow_vectors,
+    float div_right = get_divergence_region(local_vectors,
                                             local_result.flow_vector_count,
                                             50, 2 * third, OA_IMG_WIDTH,
                                             local_result.subpixel_factor);
-    oa_ttc       = ttc;
     oa_div_left  = div_left;
     oa_div_right = div_right;
 
