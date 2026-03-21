@@ -25,6 +25,9 @@
 #include "modules/computer_vision/cv.h"
 #include "modules/computer_vision/cv_edge_detection.h"
 #include "modules/computer_vision/edge_detection.h"
+#include <pthread.h>
+
+pthread_mutex_t edge_detection_mutex;
 
 #ifndef EDGE_DETECTION_FPS
 #define EDGE_DETECTION_FPS 0       ///< Default FPS (zero means run at camera fps)
@@ -42,5 +45,6 @@ struct image_t *edge_detection_func(struct image_t *img, uint8_t camera_id)
 
 void edge_detection_init(void)
 {
+  pthread_mutex_init(&edge_detection_mutex, NULL);
   cv_add_to_device(&EDGE_DETECTION_CAMERA, edge_detection_func, EDGE_DETECTION_FPS, 0);
 }

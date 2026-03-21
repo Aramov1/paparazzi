@@ -25,6 +25,10 @@
 #ifndef CV_EDGE_DETECTION_H
 #define CV_EDGE_DETECTION_H
 
+#include <pthread.h>
+
+extern pthread_mutex_t edge_detection_mutex;
+
 extern void edge_detection_init(void);
 extern int edge_thresh;
 extern int green_thresh_value;

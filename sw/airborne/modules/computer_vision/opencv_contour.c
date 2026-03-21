@@ -451,9 +451,10 @@ void find_contour(char *img, int width, int height)
 
   if (!mask || !tmp || !labels || !bfs_stack) {
     /* out of memory — report no detection and bail */
-    cont_est.contour_d_x = -1.0f;
-    cont_est.contour_d_y =  0.0f;
-    cont_est.contour_d_z =  0.0f;
+    struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f };
+    pthread_mutex_lock(&contour_mutex);
+    cont_est = local_est;
+    pthread_mutex_unlock(&contour_mutex);
     free(mask); free(tmp); free(labels); free(bfs_stack);
     return;
   }
@@ -535,11 +536,15 @@ void find_contour(char *img, int width, int height)
     else if (area >  3000.0f) dist = 1.5f;
     else                      dist = 2.0f;
 
-    cont_est.contour_d_x = dist;
-    cont_est.contour_d_y = -(best_cx - (float)width  * 0.5f)
-                           / (float)tree_boxes[best_idx].w;
-    cont_est.contour_d_z = -(best_cy - (float)height * 0.5f)
-                           / (float)tree_boxes[best_idx].h;
+    struct contour_estimation local_est;
+    local_est.contour_d_x = dist;
+    local_est.contour_d_y = -(best_cx - (float)width  * 0.5f)
+                            / (float)tree_boxes[best_idx].w;
+    local_est.contour_d_z = -(best_cy - (float)height * 0.5f)
+                            / (float)tree_boxes[best_idx].h;
+    pthread_mutex_lock(&contour_mutex);
+    cont_est = local_est;
+    pthread_mutex_unlock(&contour_mutex);
 
     /* SEND ABI MESSAGE HERE */
     /*AbiSendMsgTREE_POSITION(ABI_SENDER_TREE_DETECTOR,
@@ -549,9 +554,10 @@ void find_contour(char *img, int width, int height)
                             1);*/
 
   } else {
-    cont_est.contour_d_x = -1.0f;
-    cont_est.contour_d_y =  0.0f;
-    cont_est.contour_d_z =  0.0f;
+    struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f };
+    pthread_mutex_lock(&contour_mutex);
+    cont_est = local_est;
+    pthread_mutex_unlock(&contour_mutex);
 
     /* SEND ABI MESSAGE HERE TOO */
     /*AbiSendMsgTREE_POSITION(ABI_SENDER_TREE_DETECTOR,

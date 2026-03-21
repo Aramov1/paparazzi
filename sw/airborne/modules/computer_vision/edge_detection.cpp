@@ -29,6 +29,9 @@
 #include <cstring>
 #include <cstdio>
 #include <time.h>
+#include <pthread.h>
+
+extern pthread_mutex_t edge_detection_mutex;
 
 
 #ifndef EDGE_THRESHOLD
@@ -84,7 +87,7 @@ int edge_detection_run(char *img, int width, int height)
   int horizonRow = height;
   int leftBound  = width;
   int rightBound = 0;
-  floor_area_left = floor_area_center = floor_area_right = 0;
+  int local_fl_left = 0, local_fl_center = 0, local_fl_right = 0;
   int floor_third = width / 3;
 
   static uint8_t hblur[520 * 240];
@@ -106,9 +109,9 @@ int edge_detection_run(char *img, int width, int height)
         if (r < horizonRow) horizonRow = r;
         if (c < leftBound)  leftBound  = c;
         if (c > rightBound) rightBound = c;
-        if      (c < floor_third)       floor_area_left++;
-        else if (c < 2 * floor_third)   floor_area_center++;
-        else                            floor_area_right++;
+        if      (c < floor_third)       local_fl_left++;
+        else if (c < 2 * floor_third)   local_fl_center++;
+        else                            local_fl_right++;
       }
 
       int sum = 1 * buf[base + (c-2) * 2 + 1]
@@ -121,11 +124,17 @@ int edge_detection_run(char *img, int width, int height)
   }
 
   // Fallback to full image if no green detected, or too few pixels to be a real floor
-  int total_floor = floor_area_left + floor_area_center + floor_area_right;
+  int total_floor = local_fl_left + local_fl_center + local_fl_right;
   bool green_found = (leftBound <= rightBound) && (total_floor >= floor_min_pixels);
   if (!green_found) {
-    floor_area_left = floor_area_center = floor_area_right = 99999;
+    local_fl_left = local_fl_center = local_fl_right = 99999;
   }
+  pthread_mutex_lock(&edge_detection_mutex);
+  floor_area_left   = local_fl_left;
+  floor_area_center = local_fl_center;
+  floor_area_right  = local_fl_right;
+  pthread_mutex_unlock(&edge_detection_mutex);
+
   int lb        = green_found ? ((leftBound  > margin)        ? leftBound  - margin : 0)         : 0;
   int rb        = green_found ? ((rightBound + margin < width) ? rightBound + margin : width - 1) : width - 1;
   int row_start = green_found ? horizonRow : 0;
@@ -231,7 +240,7 @@ int edge_detection_run(char *img, int width, int height)
 
   // ── Step 6: Cleanup weak edges + count ───────────────────────────────────
   int third = width / 3;
-  edge_count_left = edge_count_center = edge_count_right = 0;
+  int local_left = 0, local_center = 0, local_right = 0;
 
   for (int r = row_start; r < height; r++) {
     for (int c = lb; c <= rb; c++) {
@@ -242,14 +251,20 @@ int edge_detection_run(char *img, int width, int height)
         if (edge_draw) {
           buf[r * width * 2 + c * 2 + 1] = 255;
         }
-        if      (c < third)       edge_count_left++;
-        else if (c < 2 * third)   edge_count_center++;
-        else                      edge_count_right++;
+        if      (c < third)       local_left++;
+        else if (c < 2 * third)   local_center++;
+        else                      local_right++;
       }
     }
   }
 
-  edge_count_total = edge_count_left + edge_count_center + edge_count_right;
+  int local_total = local_left + local_center + local_right;
+  pthread_mutex_lock(&edge_detection_mutex);
+  edge_count_left   = local_left;
+  edge_count_center = local_center;
+  edge_count_right  = local_right;
+  edge_count_total  = local_total;
+  pthread_mutex_unlock(&edge_detection_mutex);
 
   clock_gettime(CLOCK_MONOTONIC, &t1);
   long ms = (t1.tv_sec - t0.tv_sec) * 1000 + (t1.tv_nsec - t0.tv_nsec) / 1000000;
@@ -257,7 +272,7 @@ int edge_detection_run(char *img, int width, int height)
   if (log_file) {
     fprintf(log_file, "t=%ld.%03ld | left: %d, center: %d, right: %d, total: %d | time: %ldms\n",
             t1.tv_sec, t1.tv_nsec / 1000000,
-            edge_count_left, edge_count_center, edge_count_right, edge_count_total, ms);
+            local_left, local_center, local_right, local_total, ms);
     fflush(log_file);
   }
 

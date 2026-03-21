@@ -119,6 +119,18 @@ void obstacle_avoider_run(void)
   contour_estimation.contour_d_z = cont_est.contour_d_z;
   pthread_mutex_unlock(&contour_mutex);
 
+  // --- Read edge/floor counts (thread-safe copy) ---
+  int local_edge_left, local_edge_center, local_edge_right;
+  int local_floor_left, local_floor_center, local_floor_right;
+  pthread_mutex_lock(&edge_detection_mutex);
+  local_edge_left    = edge_count_left;
+  local_edge_center  = edge_count_center;
+  local_edge_right   = edge_count_right;
+  local_floor_left   = floor_area_left;
+  local_floor_center = floor_area_center;
+  local_floor_right  = floor_area_right;
+  pthread_mutex_unlock(&edge_detection_mutex);
+
   bool obstacle_detected = false;
   int turn_vote = 0;  // positive = turn right, negative = turn left
 
@@ -154,27 +166,27 @@ void obstacle_avoider_run(void)
   }
 
   // --- Signal 2: Edge count ---
-  if (edge_count_center > OA_EDGE_OBSTACLE_THRESHOLD) {
+  if (local_edge_center > OA_EDGE_OBSTACLE_THRESHOLD) {
     obstacle_detected = true;
-    int edge_diff = abs(edge_count_right - edge_count_left);
+    int edge_diff = abs(local_edge_right - local_edge_left);
     if (edge_diff > OA_EDGE_OBSTACLE_THRESHOLD / 4) {
-      if (edge_count_right > edge_count_left) turn_vote--;
+      if (local_edge_right > local_edge_left) turn_vote--;
       else                                    turn_vote++;
     }
     VERBOSE_PRINT("EDGE obstacle: L=%d C=%d R=%d\n",
-                  edge_count_left, edge_count_center, edge_count_right);
+                  local_edge_left, local_edge_center, local_edge_right);
   }
 
   // --- Signal 3: Floor area ---
-  if (floor_area_center < OA_FLOOR_MIN_AREA) {
+  if (local_floor_center < OA_FLOOR_MIN_AREA) {
     obstacle_detected = true;
-    int floor_diff = abs(floor_area_right - floor_area_left);
+    int floor_diff = abs(local_floor_right - local_floor_left);
     if (floor_diff > OA_FLOOR_MIN_AREA / 2) {
-      if (floor_area_right > floor_area_left) turn_vote++;
-      else                                    turn_vote--;
+      if (local_floor_right > local_floor_left) turn_vote++;
+      else                                      turn_vote--;
     }
     VERBOSE_PRINT("FLOOR obstacle: L=%d C=%d R=%d\n",
-                  floor_area_left, floor_area_center, floor_area_right);
+                  local_floor_left, local_floor_center, local_floor_right);
   }
 
   // --- Signal 4: Tree/contour ---
