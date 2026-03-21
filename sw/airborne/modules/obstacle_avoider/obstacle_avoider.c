@@ -48,6 +48,30 @@ float OA_MIN_REGION_DIFF         = 0.05f;
 int   OA_EDGE_OBSTACLE_THRESHOLD = 6000;
 int   OA_FLOOR_MIN_AREA          = 2000;
 
+// Per-sensor enable flags — defaults can be overridden from the airframe XML:
+//   <define name="OA_USE_OPTICFLOW" value="0"/>
+#ifndef OA_USE_OPTICFLOW
+#define OA_USE_OPTICFLOW 1
+#endif
+#ifndef OA_USE_EDGE
+#define OA_USE_EDGE 1
+#endif
+#ifndef OA_USE_FLOOR
+#define OA_USE_FLOOR 1
+#endif
+#ifndef OA_USE_TREE
+#define OA_USE_TREE 1
+#endif
+#ifndef OA_NAV_MODE
+#define OA_NAV_MODE 0
+#endif
+
+uint8_t oa_use_opticflow = OA_USE_OPTICFLOW;
+uint8_t oa_use_edge      = OA_USE_EDGE;
+uint8_t oa_use_floor     = OA_USE_FLOOR;
+uint8_t oa_use_tree      = OA_USE_TREE;
+uint8_t oa_nav_mode      = OA_NAV_MODE;
+
 // Unique sender ID — waypoint_navigation binds to ABI_BROADCAST so it
 // receives from any sender without extra configuration.
 #define OA_VISUAL_DETECTION_SENDER_ID 43
@@ -135,6 +159,7 @@ void obstacle_avoider_run(void)
   int turn_vote = 0;  // positive = turn right, negative = turn left
 
   // --- Signal 1: Opticflow TTC + regional divergence for direction ---
+  if (oa_use_opticflow) {
   if (local_result.fps >= OA_MIN_FPS &&
       local_result.tracked_cnt >= 4 &&
       local_vectors != NULL &&
@@ -164,8 +189,10 @@ void obstacle_avoider_run(void)
       else                                    turn_vote++;  // obstacle left  → turn right
     }
   }
+  } // oa_use_opticflow
 
   // --- Signal 2: Edge count ---
+  if (oa_use_edge) {
   if (local_edge_center > OA_EDGE_OBSTACLE_THRESHOLD) {
     obstacle_detected = true;
     int edge_diff = abs(local_edge_right - local_edge_left);
@@ -176,8 +203,10 @@ void obstacle_avoider_run(void)
     VERBOSE_PRINT("EDGE obstacle: L=%d C=%d R=%d\n",
                   local_edge_left, local_edge_center, local_edge_right);
   }
+  } // oa_use_edge
 
   // --- Signal 3: Floor area ---
+  if (oa_use_floor) {
   if (local_floor_center < OA_FLOOR_MIN_AREA) {
     obstacle_detected = true;
     int floor_diff = abs(local_floor_right - local_floor_left);
@@ -188,8 +217,10 @@ void obstacle_avoider_run(void)
     VERBOSE_PRINT("FLOOR obstacle: L=%d C=%d R=%d\n",
                   local_floor_left, local_floor_center, local_floor_right);
   }
+  } // oa_use_floor
 
   // --- Signal 4: Tree/contour ---
+  if (oa_use_tree) {
   if (contour_estimation.contour_d_x >= 0.0f) {
     obstacle_detected = true;
     if (contour_estimation.contour_d_y > 0.0f) turn_vote--;  // tree right → turn left
@@ -197,6 +228,7 @@ void obstacle_avoider_run(void)
     VERBOSE_PRINT("CONTOUR obstacle: dy=%.2f vote=%d\n",
                   contour_estimation.contour_d_y, turn_vote);
   }
+  } // oa_use_tree
 
   // --- Update telemetry state ---
   oa_contour_dy = contour_estimation.contour_d_y;

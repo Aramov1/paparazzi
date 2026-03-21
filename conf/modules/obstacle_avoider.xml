@@ -1,11 +1,24 @@
 <module name="obstacle_avoider" dir="obstacle_avoider">
   <doc>
-    <description>TTC-based obstacle avoider using opticflow divergence</description>
+    <description>Obstacle sensor fusion: opticflow TTC, edge count, floor area, tree contour.
+Publishes VISUAL_DETECTION ABI to waypoint_navigation.
+Airframe defines (all optional, set compile-time defaults):
+  OA_USE_OPTICFLOW  1|0  enable opticflow signal (default 1)
+  OA_USE_EDGE       1|0  enable edge-count signal (default 1)
+  OA_USE_FLOOR      1|0  enable floor-area signal (default 1)
+  OA_USE_TREE       1|0  enable tree-contour signal (default 1)
+  OA_NAV_MODE       0|1  0=state machine, 1=simple reactive (default 0)
+    </description>
   </doc>
   <settings>
     <dl_settings>
       <dl_settings name="Obstacle_Avoider_Settings">
-        <dl_setting var="OA_WARNING_TTC"    min="0.5" step="0.1" max="5.0"  shortname="warn_ttc"   module="obstacle_avoider/obstacle_avoider"/>
+        <dl_setting var="oa_nav_mode"       min="0" step="1" max="1" shortname="nav_mode"     module="obstacle_avoider/obstacle_avoider" values="StateMachine|SimpleReactive"/>
+        <dl_setting var="oa_use_opticflow"  min="0" step="1" max="1" shortname="use_opticflow" module="obstacle_avoider/obstacle_avoider" values="Off|On"/>
+        <dl_setting var="oa_use_edge"       min="0" step="1" max="1" shortname="use_edge"      module="obstacle_avoider/obstacle_avoider" values="Off|On"/>
+        <dl_setting var="oa_use_floor"      min="0" step="1" max="1" shortname="use_floor"     module="obstacle_avoider/obstacle_avoider" values="Off|On"/>
+        <dl_setting var="oa_use_tree"       min="0" step="1" max="1" shortname="use_tree"      module="obstacle_avoider/obstacle_avoider" values="Off|On"/>
+        <dl_setting var="OA_WARNING_TTC"    min="0.5" step="0.1" max="15.0" shortname="warn_ttc"   module="obstacle_avoider/obstacle_avoider"/>
         <dl_setting var="OA_SAFETY_TTC"     min="0.1" step="0.1" max="2.0"  shortname="safe_ttc"   module="obstacle_avoider/obstacle_avoider"/>
         <dl_setting var="OA_MIN_FPS"        min="1.0" step="1.0" max="30.0" shortname="min_fps"    module="obstacle_avoider/obstacle_avoider"/>
         <dl_setting var="OA_MIN_DIVERGENCE" min="0.001" step="0.001" max="0.1" shortname="min_div" module="obstacle_avoider/obstacle_avoider"/>
