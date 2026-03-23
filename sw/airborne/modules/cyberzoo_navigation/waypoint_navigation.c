@@ -1,11 +1,6 @@
-/*
- * Copyright (C) Roland Meertens
- *
- * This file is part of paparazzi
- *
- */
+
 /**
- * @file "modules/orange_avoider/waypoint_navigation.c"
+ * @file "modules/cyberzoo_navigation/waypoint_navigation.c"
  * @author Roland Meertens
  * Example on how to use the colours detected to avoid orange pole in the cyberzoo
  * This module is an example module for the course AE4317 Autonomous Flight of Micro Air Vehicles at the TU Delft.
@@ -28,16 +23,15 @@
 
 #include "generated/flight_plan.h"
 
-#define ORANGE_AVOIDER_VERBOSE TRUE
+#define NAVIGATOR_VERBOSE TRUE
 
 #define PRINT(string,...) fprintf(stderr, "[orange_avoider->%s()] " string,__FUNCTION__ , ##__VA_ARGS__)
-#if ORANGE_AVOIDER_VERBOSE
+#if NAVIGATOR_VERBOSE
 #define VERBOSE_PRINT PRINT
 #else
 #define VERBOSE_PRINT(...)
 #endif
 
-static uint8_t moveWaypointAlongHeading(uint8_t waypoint, float distanceMeters, float _heading);
 static uint8_t moveWaypointForward(uint8_t waypoint, float distanceMeters);
 static uint8_t calculateForwards(struct EnuCoor_i *new_coor, float distanceMeters);
 static uint8_t moveWaypoint(uint8_t waypoint, struct EnuCoor_i *new_coor);
@@ -46,47 +40,40 @@ static uint8_t chooseAvoidanceHeadingIncrement(void);
 static uint8_t setGoalToPathWaypoint(void);
 static uint8_t getHeadingToPathWaypoint(float *heading_to_path);
 static uint8_t setHeadingToPathWaypointLimited(float max_delta_deg);
-static uint8_t isHeadingBlocked(float heading);
-static uint8_t isRejoinGeometrySatisfied(void);
 static uint8_t chooseEdgeAwareIncrement(float *increment_deg);
 static uint8_t getClosestInnerEdgeInward(float *inward_x, float *inward_y, float *distance_to_edge);
 static float angle_diff(float a, float b);
 static float clampf(float v, float lo, float hi);
 
-/* currently, using waypoint_navigation.c, the drone avoids abstacles at the same time as following the perimeter of the cyberzoo, however, when it reaches the SEARCH_FOR_SAFE_HEADING state, it keeps moving slightly forward at the same time as it turn to find a safe heading, and will bump into the obstacle, make it such that it will move faster out of the way of the obstacle */
+enum navigation_state_t {
+  SAFE,
+  OBSTACLE_FOUND,
+  SEARCH_FOR_SAFE_HEADING,
+  REJOIN_PATH,
+  OUT_OF_BOUNDS,
+  GO_TO_GATE
+};
+
 
 // define settings
 #ifndef NAV_PROGRAM_MODE
 #define NAV_PROGRAM_MODE 2
 #endif
 int16_t nav_program_mode = NAV_PROGRAM_MODE;  // 0=SimpleReactive 1=WaypointMachine 2=Perimeter
-float oa_color_count_frac = 0.18f;       // detect threshold (orange fraction)
-float oa_clear_color_count_frac = 0.18f; // clear threshold (hysteresis)
-float oa_safe_max_speed = 0.3f;          // low cruise speed [m/s] for cautious testing
-float oa_stop_max_speed = 0.0f;          // commanded max speed on obstacle detection [m/s]
-float oa_heading_slew_deg = 20.f;         // max heading change per cycle when tracking path [deg]
-float oa_rejoin_hold_time_s = 1.5f;      // minimum time in rejoin mode before SAFE [s]
-float oa_rejoin_corridor_width_m = 0.8f; // max cross-track error to rejoin line [m]
-float oa_rejoin_heading_error_deg = 20.f; // max heading error to path before SAFE [deg]
-float oa_rejoin_probe_distance_m = 1.2f; // short probe ahead toward path for arena safety [m]
-float oa_blocked_sector_half_angle_deg = 35.f; // forbidden return sector half-angle [deg]
-float oa_blocked_sector_time_s = 4.0f;   // blocked-sector memory duration [s]
-int16_t oa_rejoin_clear_confidence = 8;  // clear samples needed before safe rejoin
-float oa_inner_edge_margin_m = 0.4f;     // apply edge-aware turn selection when closer than this to inner geofence edge [m]
-int16_t oa_rejoin_forward_cycles = 4;    // keep following safe WP_TRAJECTORY this many REJOIN_PATH cycles before path targetting
+float safe_max_speed = 0.5f;         	// low cruise speed [m/s] for cautious testing
+float obstacle_max_speed = 0.2f;        // commanded max speed on obstacle detection [m/s]
+float heading_slew_deg = 45.f;         	// max heading change per cycle when tracking path [deg]
+int16_t cycles_until_rejoin_path = 4;  	// clear samples needed before safe rejoin
+float inner_edge_margin_m = 0.4f;     	// apply edge-aware turn selection when closer than this to inner geofence edge [m]
 
 // define and initialise global variables
-enum navigation_state_t navigation_state = SAFE;
-int32_t color_count = 0;               // orange color count from color filter for obstacle detection
-int16_t obstacle_free_confidence = 0;  // certainty that forward direction is safe
+enum navigation_state_t navigation_state = SEARCH_FOR_SAFE_HEADING;
 float heading_increment = 15.f;         // heading angle increment [deg]
-int16_t rejoin_counter = 0;            // cycles spent in REJOIN_PATH
-float rejoin_start_x = 0.f;            // position where avoidance started
-float rejoin_start_y = 0.f;
-float blocked_heading_center = 0.f;    // center of recently blocked heading sector
-int16_t blocked_heading_counter = 0;   // cycles left in blocked heading memory
-uint8_t edge_turn_bias_active = false; // when true, keep turning away from geofence edge
-float edge_turn_bias_sign = 1.f;       // +1 or -1 turn sign bias when edge_turn_bias_active
+int16_t rejoin_counter = 0;            	// cycles spent in REJOIN_PATH
+uint8_t edge_turn_bias_active = false; 	// when true, keep turning away from geofence edge
+float edge_turn_bias_sign = 1.f;       	// +1 or -1 turn sign bias when edge_turn_bias_active
+uint8_t obstacle_detected = 0;
+int16_t obstacle_free_confidence = 0;
 
 // --- SimpleReactive mode (nav_program_mode == 0) private state ---
 // Mirrors old_logic.c exactly. Uses color_count / sensor_turn_vote from ABI.
@@ -95,27 +82,31 @@ static enum sr_nav_state_t sr_navigation_state = SR_SAFE;
 static float   sr_heading_increment = 5.f;
 static int16_t sr_confidence        = 0;
 
-/*
- * This next section defines an ABI messaging event (http://wiki.paparazziuav.org/wiki/ABI), necessary
- * any time data calculated in another module needs to be accessed. Including the file where this external
- * data is defined is not enough, since modules are executed parallel to each other, at different frequencies,
- * in different threads. The ABI event is triggered every time new data is sent out, and as such the function
- * defined in this file does not need to be explicitly called, only bound in the init function
- */
-#ifndef ORANGE_AVOIDER_VISUAL_DETECTION_ID
-#define ORANGE_AVOIDER_VISUAL_DETECTION_ID ABI_BROADCAST
-#endif
-static int16_t sensor_turn_vote = 0;  // turn hint from obstacle sensor fusion
 
-static abi_event color_detection_ev;
-static void color_detection_cb(uint8_t __attribute__((unused)) sender_id,
-                               int16_t pixel_x, int16_t __attribute__((unused)) pixel_y,
-                               int16_t __attribute__((unused)) pixel_width, int16_t __attribute__((unused)) pixel_height,
-                               int32_t quality, int16_t __attribute__((unused)) extra)
+#ifndef WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID
+#define WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID ABI_BROADCAST
+#endif
+static abi_event orange_detection_ev;
+static void orange_detection_cb(uint8_t __attribute__((unused)) sender_id,
+                                uint8_t __attribute__((unused)) orange_detected,
+                                int16_t __attribute__((unused)) orange_free_confidence)
+                              {
+                                obstacle_detected = orange_detected;
+                                obstacle_free_confidence = orange_free_confidence;
+                              }
+
+
+// Initialisation function, setting the colour filter, random seed and heading_increment
+void waypoint_navigation_init(void)
 {
-  color_count = quality;
-  sensor_turn_vote = pixel_x;
+  srand(time(NULL));
+  chooseAvoidanceHeadingIncrement();
+  NavSetMaxSpeed(safe_max_speed);
+
+  // bind our colorfilter callbacks to receive the color filter outputs
+  AbiBindMsgORANGE_OBSTACLE_DETECTION(WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID, &orange_detection_ev, orange_detection_cb);
 }
+
 
 /*
  * SimpleReactive navigation (nav_program_mode == 0).
@@ -190,28 +181,10 @@ static void simple_reactive_periodic(void)
   obstacle_free_confidence = sr_confidence;
 }
 
-/*
- * Initialisation function, setting the colour filter, random seed and heading_increment
- */
-void orange_avoider_init(void)
+
+// Function that checks it is safe to move forwards, and then moves a waypoint forward or changes the heading
+void waypoint_navigation_periodic(void)
 {
-  srand(time(NULL));
-  chooseAvoidanceHeadingIncrement();
-  NavSetMaxSpeed(oa_safe_max_speed);
-
-  // bind our colorfilter callbacks to receive the color filter outputs
-  AbiBindMsgVISUAL_DETECTION(ORANGE_AVOIDER_VISUAL_DETECTION_ID, &color_detection_ev, color_detection_cb);
-}
-
-/*
- * Function that checks it is safe to move forwards, and then moves a waypoint forward or changes the heading
- */
-void orange_avoider_periodic(void)
-{
-  const float periodic_hz = 4.0f; // module configured at 4 Hz
-  const int16_t rejoin_hold_cycles = (int16_t)(oa_rejoin_hold_time_s * periodic_hz);
-  const int16_t blocked_sector_cycles = (int16_t)(oa_blocked_sector_time_s * periodic_hz);
-
   // only evaluate our state machine if we are flying
   if (!autopilot_in_flight()) {
     return;
@@ -224,34 +197,15 @@ void orange_avoider_periodic(void)
     return;
   }
 
-  int32_t color_count_threshold = oa_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
-  int32_t clear_color_count_threshold = oa_clear_color_count_frac * front_camera.output_size.w * front_camera.output_size.h;
-
-  VERBOSE_PRINT("Color_count: %d detect_thr: %d clear_thr: %d state: %d\n",
-                color_count, color_count_threshold, clear_color_count_threshold, navigation_state);
-
-  // Hysteresis for obstacle confidence
-  if (color_count <= clear_color_count_threshold) {
-    obstacle_free_confidence++;
-  } else if (color_count >= color_count_threshold) {
-    obstacle_free_confidence -= 2;
-  } else {
-    obstacle_free_confidence--;
-  }
-  Bound(obstacle_free_confidence, 0, oa_rejoin_clear_confidence);
-
-  if (blocked_heading_counter > 0) {
-    blocked_heading_counter--;
-  }
-
-  NavSetMaxSpeed(oa_safe_max_speed);  // set maximum speed of bebop
-
   switch (navigation_state) {
     case SAFE:
+      // set maximum speed of bebop
+      NavSetMaxSpeed(safe_max_speed);
+
       if (nav_program_mode == 2) {
         // Mode 2: Perimeter — track WP_PATH set by cyberzoo_perimeter_waypoints
         setGoalToPathWaypoint();
-        setHeadingToPathWaypointLimited(oa_heading_slew_deg);
+        setHeadingToPathWaypointLimited(heading_slew_deg);
       } else {
         // Mode 1: WaypointMachine — full state machine, cruise forward freely
         moveWaypointForward(WP_TRAJECTORY, 0.5f);
@@ -261,36 +215,34 @@ void orange_avoider_periodic(void)
         }
         moveWaypointForward(WP_GOAL, 0.3f);
       }
-      if (color_count >= color_count_threshold || obstacle_free_confidence == 0) {
+
+      // check whether obstacle is detected, and update state accordingly
+      if (obstacle_detected) {
         navigation_state = OBSTACLE_FOUND;
       }
+
+      //TODO: update goal, path and state logic to allow to follow gates
       break;
 
     case OBSTACLE_FOUND:
+      NavSetMaxSpeed(obstacle_max_speed);
       waypoint_move_here_2d(WP_TRAJECTORY);
       waypoint_move_here_2d(WP_GOAL);
       chooseAvoidanceHeadingIncrement();
 
-      rejoin_start_x = stateGetPositionEnu_f()->x;
-      rejoin_start_y = stateGetPositionEnu_f()->y;
       rejoin_counter = 0;
 
-      blocked_heading_center = stateGetNedToBodyEulers_f()->psi;
-      FLOAT_ANGLE_NORMALIZE(blocked_heading_center);
-      blocked_heading_counter = blocked_sector_cycles;
-
-      obstacle_free_confidence = 0;
       navigation_state = SEARCH_FOR_SAFE_HEADING;
       break;
 
     case SEARCH_FOR_SAFE_HEADING:
+      // Increase heading unill safe heading is found.
       // Once a candidate safe heading appears (confidence > 0), stop turning and keep testing straight ahead.
-      // chooseAvoidanceHeadingIncrement();
-      if (obstacle_free_confidence == 0) {
+      if (obstacle_detected) {
         increase_nav_heading(heading_increment);
       }
 
-      // move test waypoint (WP_TRAJECTORY) ahead and check if it falls out of bounds
+      // if current heading is safe, move test waypoint (WP_TRAJECTORY) ahead and check if it falls out of bounds
       moveWaypointForward(WP_TRAJECTORY, 0.7f);
       if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
         navigation_state = OUT_OF_BOUNDS;
@@ -301,80 +253,49 @@ void orange_avoider_periodic(void)
       waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_TRAJECTORY)),
                          POS_BFP_OF_REAL(WaypointY(WP_TRAJECTORY)));
 
-      if (obstacle_free_confidence >= oa_rejoin_clear_confidence) {
+      // follow candidate/safe path for certain amount of cycles, then rejoin path
+      if (obstacle_free_confidence >= cycles_until_rejoin_path) {
         navigation_state = REJOIN_PATH;
         rejoin_counter = 0;
       }
       break;
 
     case REJOIN_PATH: {
-      float path_heading;
-      float safe_heading;
+      NavSetMaxSpeed(safe_max_speed);
+
       rejoin_counter++;
 
-      // First keep moving along already-safe local trajectory for a few cycles before steering to WP_PATH.
-      if (rejoin_counter <= oa_rejoin_forward_cycles) {
-        VERBOSE_PRINT("keeping on same trajectory");
-        moveWaypointForward(WP_TRAJECTORY, 0.7f);
-        waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_TRAJECTORY)),
-                           POS_BFP_OF_REAL(WaypointY(WP_TRAJECTORY)));
+      // 1. check for obstacles in view
+      // 2. calculate new WP_PATH using function from cyberzoo_perimeter_waypoints
+      // 3. move WP_GOAL to WP_PATH and ensure to face WP_PATH (should be already the case)
+      // 4. return to SAFE
 
-        safe_heading = nav.heading;
-
-        // check that 'safe' local trajectory won't go out of bounds
-        if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
-          // navigation_state = OUT_OF_BOUNDS;
-          break;
-        }
-
-        if (color_count >= color_count_threshold) {
-          navigation_state = OBSTACLE_FOUND;
-          break;
-        }
+      if (obstacle_detected) {
+        navigation_state = OBSTACLE_FOUND;
         break;
       }
 
-      // getHeadingToPathWaypoint(&path_heading);
-      /*if (isHeadingBlocked(path_heading)) {
-        increase_nav_heading(heading_increment);
-        moveWaypointForward(WP_TRAJECTORY, 0.7f);
-        waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_TRAJECTORY)),
-                           POS_BFP_OF_REAL(WaypointY(WP_TRAJECTORY)));
-        if (!InsideObstacleZone(WaypointX(WP_TRAJECTORY), WaypointY(WP_TRAJECTORY))) {
-          // navigation_state = OUT_OF_BOUNDS;
-        }
-        break;
-      }*/
-
+      ProjectPathToEdge();
       if (nav_program_mode == 2) {
         // Mode 2: Perimeter — steer back toward WP_PATH
         setGoalToPathWaypoint();
-        setHeadingToPathWaypointLimited(oa_heading_slew_deg);
+        setHeadingToPathWaypointLimited(heading_slew_deg);
       } else {
         // Mode 1: WaypointMachine — continue forward, no perimeter
         moveWaypointForward(WP_GOAL, 0.3f);
       }
 
-      if (color_count >= color_count_threshold) {
-        VERBOSE_PRINT("detected obstacle and returning to last safe heading");
-        // return to original heading
-        moveWaypointAlongHeading(WP_TRAJECTORY, 0.7f, safe_heading);
-        waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_TRAJECTORY)),
-                           POS_BFP_OF_REAL(WaypointY(WP_TRAJECTORY)));
-
-        // navigation_state = OBSTACLE_FOUND;
+      if (rejoin_counter >= 4) {
+        rejoin_counter = 0;
+        navigation_state = SAFE;
         break;
       }
 
-      if (rejoin_counter >= rejoin_hold_cycles &&
-          obstacle_free_confidence >= oa_rejoin_clear_confidence &&
-          (nav_program_mode != 2 || isRejoinGeometrySatisfied())) {
-        navigation_state = SAFE;
-      }
       break;
     }
 
-    case OUT_OF_BOUNDS:
+    case OUT_OF_BOUNDS: {
+      NavSetMaxSpeed(obstacle_max_speed);
       increase_nav_heading(heading_increment);
       moveWaypointForward(WP_TRAJECTORY, 0.7f);
       waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_TRAJECTORY)),
@@ -386,15 +307,15 @@ void orange_avoider_periodic(void)
         navigation_state = SEARCH_FOR_SAFE_HEADING;
       }
       break;
+    }
 
     default:
       break;
   }
 }
 
-/*
- * Increases the NAV heading. Assumes heading is an INT32_ANGLE. It is bound in this function.
- */
+
+// Increases the NAV heading. Assumes heading is an INT32_ANGLE. It is bound in this function.
 uint8_t increase_nav_heading(float incrementDegrees)
 {
   float signed_increment_deg = incrementDegrees;
@@ -402,7 +323,7 @@ uint8_t increase_nav_heading(float incrementDegrees)
   // Keep the turn away from inner-geofence edge while we remain near that edge.
   if (edge_turn_bias_active) {
     float inward_x, inward_y, edge_dist;
-    if (!getClosestInnerEdgeInward(&inward_x, &inward_y, &edge_dist) || edge_dist > oa_inner_edge_margin_m * 1.5f) {
+    if (!getClosestInnerEdgeInward(&inward_x, &inward_y, &edge_dist) || edge_dist > inner_edge_margin_m * 1.5f) {
       edge_turn_bias_active = false;
     } else {
       signed_increment_deg = fabsf(incrementDegrees) * edge_turn_bias_sign;
@@ -417,9 +338,18 @@ uint8_t increase_nav_heading(float incrementDegrees)
   return false;
 }
 
-/*
- * Calculates coordinates of distance forward and sets waypoint 'waypoint' to those coordinates
- */
+
+// Sets waypoint 'waypoint' to the coordinates of 'new_coor'
+uint8_t moveWaypoint(uint8_t waypoint, struct EnuCoor_i *new_coor)
+{
+  VERBOSE_PRINT("Moving waypoint %d to x:%f y:%f\n", waypoint, POS_FLOAT_OF_BFP(new_coor->x),
+                POS_FLOAT_OF_BFP(new_coor->y));
+  waypoint_move_xy_i(waypoint, new_coor->x, new_coor->y);
+  return false;
+}
+
+
+// Calculates coordinates of distance forward and sets waypoint 'waypoint' to those coordinates
 uint8_t moveWaypointForward(uint8_t waypoint, float distanceMeters)
 {
   struct EnuCoor_i new_coor;
@@ -428,9 +358,8 @@ uint8_t moveWaypointForward(uint8_t waypoint, float distanceMeters)
   return false;
 }
 
-/*
- * Calculates coordinates of a distance of 'distanceMeters' forward w.r.t. current position and heading
- */
+
+// Calculates coordinates of a distance of 'distanceMeters' forward w.r.t. current position and heading
 uint8_t calculateForwards(struct EnuCoor_i *new_coor, float distanceMeters)
 {
   float heading = nav.heading;
@@ -440,26 +369,16 @@ uint8_t calculateForwards(struct EnuCoor_i *new_coor, float distanceMeters)
   return false;
 }
 
-uint8_t moveWaypointAlongHeading(uint8_t waypoint, float distanceMeters, float _heading) {
-  struct EnuCoor_i new_coor;
-  new_coor.x = stateGetPositionEnu_i()->x + POS_BFP_OF_REAL(sinf(_heading) * distanceMeters);
-  new_coor.y = stateGetPositionEnu_i()->y + POS_BFP_OF_REAL(cosf(_heading) * distanceMeters);
-  moveWaypoint(waypoint, &new_coor);
-  return false;
-}
 
-/*
- * Sets WP_GOAL to the current nominal WP_PATH target.
- */
+// Sets WP_GOAL to the current nominal WP_PATH target.
 uint8_t setGoalToPathWaypoint(void)
 {
   waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_PATH)), POS_BFP_OF_REAL(WaypointY(WP_PATH)));
   return false;
 }
 
-/*
- * Compute desired heading toward WP_PATH from current position.
- */
+
+// Compute desired heading toward WP_PATH from current position.
 uint8_t getHeadingToPathWaypoint(float *heading_to_path)
 {
   float dx = WaypointX(WP_PATH) - stateGetPositionEnu_f()->x;
@@ -475,20 +394,12 @@ uint8_t getHeadingToPathWaypoint(float *heading_to_path)
   return false;
 }
 
-/*
- * Align heading toward WP_PATH with a slew-rate limit and blocked-sector check.
- */
+
+// Align heading toward WP_PATH with a slew-rate limit
 uint8_t setHeadingToPathWaypointLimited(float max_delta_deg)
 {
   float desired_heading;
   getHeadingToPathWaypoint(&desired_heading);
-
-  if (isHeadingBlocked(desired_heading)) {
-    float bypass = blocked_heading_center +
-                   copysignf(RadOfDeg(oa_blocked_sector_half_angle_deg + 10.f), heading_increment);
-    FLOAT_ANGLE_NORMALIZE(bypass);
-    desired_heading = bypass;
-  }
 
   float heading_error = angle_diff(desired_heading, nav.heading);
   float max_delta = RadOfDeg(max_delta_deg);
@@ -500,62 +411,8 @@ uint8_t setHeadingToPathWaypointLimited(float max_delta_deg)
   return false;
 }
 
-/*
- * Check whether heading lies inside the remembered blocked return sector.
- */
-uint8_t isHeadingBlocked(float heading)
-{
-  if (blocked_heading_counter <= 0) {
-    return false;
-  }
 
-  float d = fabsf(angle_diff(heading, blocked_heading_center));
-  return d <= RadOfDeg(oa_blocked_sector_half_angle_deg);
-}
-
-/*
- * Geometric gate for path rejoin:
- * 1) Current position must be close to the line from avoidance start to WP_PATH.
- * 2) Heading error to path target must be small.
- * 3) Short forward probe toward WP_PATH must remain inside arena bounds.
- */
-uint8_t isRejoinGeometrySatisfied(void)
-{
-  float cx = stateGetPositionEnu_f()->x;
-  float cy = stateGetPositionEnu_f()->y;
-  float ax = rejoin_start_x;
-  float ay = rejoin_start_y;
-  float bx = WaypointX(WP_PATH);
-  float by = WaypointY(WP_PATH);
-
-  float abx = bx - ax;
-  float aby = by - ay;
-  float acx = cx - ax;
-  float acy = cy - ay;
-  float ab_norm_sq = abx * abx + aby * aby;
-
-  float cross_track_dist = 0.f;
-  if (ab_norm_sq > 0.04f) {
-    float t = clampf((acx * abx + acy * aby) / ab_norm_sq, 0.f, 1.f);
-    float px = ax + t * abx;
-    float py = ay + t * aby;
-    float ex = cx - px;
-    float ey = cy - py;
-    cross_track_dist = sqrtf(ex * ex + ey * ey);
-  }
-
-  float path_heading;
-  getHeadingToPathWaypoint(&path_heading);
-  float heading_err = fabsf(angle_diff(path_heading, nav.heading));
-
-  float probe_x = cx + sinf(path_heading) * oa_rejoin_probe_distance_m;
-  float probe_y = cy + cosf(path_heading) * oa_rejoin_probe_distance_m;
-
-  return (cross_track_dist <= oa_rejoin_corridor_width_m) &&
-         (heading_err <= RadOfDeg(oa_rejoin_heading_error_deg)) &&
-         InsideObstacleZone(probe_x, probe_y);
-}
-
+// calcualte difference between two headings
 float angle_diff(float a, float b)
 {
   float d = a - b;
@@ -563,6 +420,8 @@ float angle_diff(float a, float b)
   return d;
 }
 
+
+// clamp float between two values
 float clampf(float v, float lo, float hi)
 {
   if (v < lo) {
@@ -574,20 +433,8 @@ float clampf(float v, float lo, float hi)
   return v;
 }
 
-/*
- * Sets waypoint 'waypoint' to the coordinates of 'new_coor'
- */
-uint8_t moveWaypoint(uint8_t waypoint, struct EnuCoor_i *new_coor)
-{
-  VERBOSE_PRINT("Moving waypoint %d to x:%f y:%f\n", waypoint, POS_FLOAT_OF_BFP(new_coor->x),
-                POS_FLOAT_OF_BFP(new_coor->y));
-  waypoint_move_xy_i(waypoint, new_coor->x, new_coor->y);
-  return false;
-}
 
-/*
- * Sets the variable 'heading_increment'
- */
+// select which direction to turn depending on distance from edge
 uint8_t chooseAvoidanceHeadingIncrement(void)
 {
   float selected_increment = 0.f;
@@ -601,30 +448,22 @@ uint8_t chooseAvoidanceHeadingIncrement(void)
   }
 
   edge_turn_bias_active = false;
+  float path_heading;
+  getHeadingToPathWaypoint(&path_heading);
+  float diff = angle_diff(path_heading, nav.heading);
 
-  if (sensor_turn_vote != 0) {
-    // Sensor has a directional opinion — obstacle safety takes priority over path preference
-    heading_increment = (sensor_turn_vote > 0) ? fabsf(heading_increment) : -fabsf(heading_increment);
-    VERBOSE_PRINT("Sensor-guided turn: vote=%d increment=%f\n", sensor_turn_vote, heading_increment);
+  if (diff > 0.f) {
+    heading_increment = fabsf(heading_increment);
   } else {
-    // No sensor directional signal — fall back to turning toward path
-    float path_heading;
-    getHeadingToPathWaypoint(&path_heading);
-    float diff = angle_diff(path_heading, nav.heading);
-    if (diff > 0.f) {
-      heading_increment = fabsf(heading_increment);
-    } else {
-      heading_increment = -fabsf(heading_increment);
-    }
-    VERBOSE_PRINT("Turn closest to PATH with increment: %f\n", heading_increment);
+    heading_increment = -fabsf(heading_increment);
   }
+
+  VERBOSE_PRINT("Turn closest to PATH with increment: %f\n", heading_increment);
   return false;
 }
 
-/*
- * If close to inner geofence edge, choose turn direction away from that edge.
- * Returns true when edge-aware increment has been selected.
- */
+
+// If close to inner geofence edge, choose turn direction away from that edge.
 uint8_t chooseEdgeAwareIncrement(float *increment_deg)
 {
   float inward_x, inward_y, edge_dist;
@@ -632,7 +471,7 @@ uint8_t chooseEdgeAwareIncrement(float *increment_deg)
     return false;
   }
 
-  if (edge_dist > oa_inner_edge_margin_m) {
+  if (edge_dist > inner_edge_margin_m) {
     return false;
   }
 
@@ -744,8 +583,7 @@ uint8_t getClosestInnerEdgeInward(float *inward_x, float *inward_y, float *dista
 }
 
 
-/*
- * when exiting SEARCH_FOR_SAFE_HEADING, project a WP_PATH_TEST to the edge which the drone is looking at, ensuring that
- * there is 'no orange' in the centre of the screen, then go to REJOIN_PATH state and if orange is immediately detected,
- * move WP_PATH to WP_PATH_TEST
- **/
+// return wether navigation state is REJOIN_PATH
+uint8_t nav_state_is_rejoin_path(void) {
+  return navigation_state == REJOIN_PATH;
+}

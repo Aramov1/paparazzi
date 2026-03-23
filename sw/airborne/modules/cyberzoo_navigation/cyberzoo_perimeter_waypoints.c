@@ -5,7 +5,6 @@
  */
 
 #include "modules/cyberzoo_navigation/cyberzoo_perimeter_waypoints.h"
-
 #include "firmwares/rotorcraft/navigation.h"
 #include "generated/flight_plan.h"
 #include "modules/cyberzoo_navigation/waypoint_navigation.h"
