@@ -367,16 +367,134 @@ void find_contour(char *img, int width, int height)
   }
 
   /* -----------------------------------------------------------------
+   * Step 1b: soft erosion — kill bridge pixels (< 2 set 4-neighbors).
+   * Breaks 1-2px chains connecting separate blobs without shrinking
+   * the interior of real blobs.
+   * ----------------------------------------------------------------- */
+  static uint8_t mask_eroded[MAX_IMG_PIXELS];
+  for (int r = 0; r < height; r++) {
+    for (int c = 0; c < width; c++) {
+      int idx = r * width + c;
+      if (!mask[idx]) { mask_eroded[idx] = 0; continue; }
+      int neighbors = 0;
+      if (r > 0          && mask[(r-1)*width + c]) neighbors++;
+      if (r < height - 1 && mask[(r+1)*width + c]) neighbors++;
+      if (c > 0          && mask[r*width + c - 1]) neighbors++;
+      if (c < width  - 1 && mask[r*width + c + 1]) neighbors++;
+      mask_eroded[idx] = (neighbors >= 2) ? 1 : 0;
+    }
+  }
+
+  /* -----------------------------------------------------------------
    * Step 2: blob finding with precomputed metrics + early rejection
    * ----------------------------------------------------------------- */
   static Blob blobs[MAX_BLOBS];
-  int n_blobs = find_blobs(mask, width, height, blobs);
+  int n_blobs = find_blobs(mask_eroded, width, height, blobs);
 
   static int active[MAX_BLOBS];
   int na = 0;
   for (int b = 0; b < n_blobs; b++) {
     if (blobs[b].active) active[na++] = b;
   }
+
+  /* -----------------------------------------------------------------
+   * Step 2b: blob splitting — if a blob has low fill ratio and a clear
+   * horizontal waist, it is likely two merged markers. Split at the row
+   * with minimum pixel count if that row is below 30% of the densest row.
+   * ----------------------------------------------------------------- */
+  static int   new_active[MAX_BLOBS];
+  static int   row_counts[MAX_IMG_HEIGHT];
+  int new_na = 0;
+
+  for (int ii = 0; ii < na; ii++) {
+    int b = active[ii];
+    int bw = blobs[b].w;
+    int bh = blobs[b].h;
+
+    /* only consider tall blobs with low fill ratio */
+    int fill_num = blobs[b].pixel_count;
+    int fill_den = bw * bh;
+    if (bh < height / 4 || fill_num * 4 > fill_den) {
+      /* not a candidate — keep as-is */
+      new_active[new_na++] = b;
+      continue;
+    }
+
+    /* count set pixels per row within the blob's bounding box */
+    int max_count = 0;
+    int min_count = width + 1;
+    int split_row = blobs[b].min_y;
+    for (int r = blobs[b].min_y; r <= blobs[b].max_y; r++) {
+      int cnt = 0;
+      for (int c = blobs[b].min_x; c <= blobs[b].max_x; c++) {
+        if (mask_eroded[r * width + c]) cnt++;
+      }
+      row_counts[r - blobs[b].min_y] = cnt;
+      if (cnt > max_count) max_count = cnt;
+      if (cnt < min_count) { min_count = cnt; split_row = r; }
+    }
+
+    /* only split if waist is below 30% of the densest row */
+    if (min_count * 10 >= max_count * 3) {
+      new_active[new_na++] = b;
+      continue;
+    }
+
+    /* compute top sub-blob by re-scanning rows [min_y .. split_row-1] */
+    Blob top = {0}; top.active = 1;
+    top.min_x = blobs[b].max_x; top.max_x = blobs[b].min_x;
+    top.min_y = blobs[b].min_y; top.max_y = split_row - 1;
+    for (int r = top.min_y; r <= top.max_y; r++) {
+      for (int c = blobs[b].min_x; c <= blobs[b].max_x; c++) {
+        if (!mask_eroded[r * width + c]) continue;
+        top.pixel_count++;
+        if (c < top.min_x) top.min_x = c;
+        if (c > top.max_x) top.max_x = c;
+      }
+    }
+
+    /* compute bottom sub-blob by re-scanning rows [split_row+1 .. max_y] */
+    Blob bot = {0}; bot.active = 1;
+    bot.min_x = blobs[b].max_x; bot.max_x = blobs[b].min_x;
+    bot.min_y = split_row + 1; bot.max_y = blobs[b].max_y;
+    for (int r = bot.min_y; r <= bot.max_y; r++) {
+      for (int c = blobs[b].min_x; c <= blobs[b].max_x; c++) {
+        if (!mask_eroded[r * width + c]) continue;
+        bot.pixel_count++;
+        if (c < bot.min_x) bot.min_x = c;
+        if (c > bot.max_x) bot.max_x = c;
+      }
+    }
+
+    /* finalise metrics for each sub-blob */
+    top.w = top.max_x - top.min_x + 1;
+    top.h = top.max_y - top.min_y + 1;
+    top.area = top.w * top.h;
+    top.cx = top.min_x + top.w / 2;
+    top.cy = top.min_y + top.h / 2;
+
+    bot.w = bot.max_x - bot.min_x + 1;
+    bot.h = bot.max_y - bot.min_y + 1;
+    bot.area = bot.w * bot.h;
+    bot.cx = bot.min_x + bot.w / 2;
+    bot.cy = bot.min_y + bot.h / 2;
+
+    printf("[SPLIT] blob %d split at row %d — top px=%d bot px=%d\n",
+           b, split_row, top.pixel_count, bot.pixel_count);
+
+    /* replace original blob with top, append bottom if there is room */
+    if (top.pixel_count >= MIN_BLOB_AREA) {
+      blobs[b] = top;
+      new_active[new_na++] = b;
+    }
+    if (bot.pixel_count >= MIN_BLOB_AREA && n_blobs < MAX_BLOBS) {
+      blobs[n_blobs] = bot;
+      new_active[new_na++] = n_blobs++;
+    }
+  }
+
+  na = new_na;
+  for (int i = 0; i < na; i++) active[i] = new_active[i];
 
   /* draw yellow rectangle around every active blob so we can see what is detected */
   if (show_threshold_overlay) {
@@ -459,19 +577,19 @@ void find_contour(char *img, int width, int height)
       // if (asp_num > asp_den) { if (asp_num * 5 > asp_den * 8) continue; }
       // else                   { if (asp_den * 5 > asp_num * 8) continue; }
 
-      /* --- Ratio check --- */
-      if (ai > aj) {
-        if (ai64 * 10 > aj64 * 17) {
-          printf("[REJECT] ratio too big (top bigger): ai=%d aj=%d ratio=%.2f\n",
-                ai, aj, (float)ai/aj);
-          continue;
-        }
-      } else {
-        if (aj64 * 10 > ai64 * 17) {
-          printf("[REJECT] ratio too big (bottom bigger): ai=%d aj=%d ratio=%.2f\n",
-                ai, aj, (float)aj/ai);
-          continue;
-        }
+      /* --- Ratio check ---
+       * SEARCH: ratio_max=1.7  → a_big*10 > a_small*17
+       * TRACK:  ratio_max=3.5  → a_big*10 > a_small*35
+       * Relaxed in tracking because perspective makes one marker appear
+       * larger when approaching at an angle. */
+      int64_t ratio_lhs = (ai > aj) ? ai64 : aj64;
+      int64_t ratio_rhs = (ai > aj) ? aj64 : ai64;
+      int     ratio_den = gate_tracking ? 35 : 17;
+      if (ratio_lhs * 10 > ratio_rhs * ratio_den) {
+        printf("[REJECT] ratio too big (%s): ai=%d aj=%d ratio=%.2f\n",
+               ai > aj ? "top bigger" : "bottom bigger",
+               ai, aj, (float)ratio_lhs / ratio_rhs);
+        continue;
       }
 
       /* --- Total area --- */
