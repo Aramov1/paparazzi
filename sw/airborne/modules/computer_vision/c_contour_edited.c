@@ -25,6 +25,7 @@
 #include "c_contour_edited.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 /* -------------------------------------------------------------------------
@@ -101,9 +102,12 @@ void contour_reset_tracking(void)
 #define Y_GREEN 150
 #define U_GREEN  44
 #define V_GREEN  21
-#define Y_CYAN  178
-#define U_CYAN  170
-#define V_CYAN    0
+#define Y_CYAN   178
+#define U_CYAN   170
+#define V_CYAN     0
+#define Y_YELLOW 210
+#define U_YELLOW  16
+#define V_YELLOW 146
 
 /* -------------------------------------------------------------------------
  * Write one pixel into the UYVY buffer.
@@ -374,6 +378,17 @@ void find_contour(char *img, int width, int height)
     if (blobs[b].active) active[na++] = b;
   }
 
+  /* draw yellow rectangle around every active blob so we can see what is detected */
+  if (show_threshold_overlay) {
+    for (int b = 0; b < na; b++) {
+      int idx = active[b];
+      draw_rect(buf, width, height,
+                blobs[idx].min_x, blobs[idx].min_y,
+                blobs[idx].max_x, blobs[idx].max_y,
+                Y_YELLOW, U_YELLOW, V_YELLOW, 1);
+    }
+  }
+
   if (na < 2) {
     DPRINT("[CONTOUR] Less than 2 blobs: %d\n", na);
     report_holdover();
@@ -485,20 +500,20 @@ void find_contour(char *img, int width, int height)
       }
 
       /* --- Horizontal alignment --- */
-      if (xd64 * 10 > (int64_t)width * 3) {
+      if (xd64 * 20 > (int64_t)width * 3) {
         printf("[REJECT] x_diff too large: xd=%d (%.2f%% width)\n",
               x_diff, 100.f * x_diff / width);
         continue;
       }
 
       /* --- Aspect ratio --- */
-      if (wi64 * 2 < hi64 * 4) {
+      if (wi64 * 2 < hi64 * 3) {
         printf("[REJECT] blob i too tall: w=%d h=%d ratio=%.2f\n",
               wi, hi, (float)wi/hi);
         continue;
       }
 
-      if (wj64 * 2 < hj64 * 4) {
+      if (wj64 * 2 < hj64 * 3) {
         printf("[REJECT] blob j too tall: w=%d h=%d ratio=%.2f\n",
               wj, hj, (float)wj/hj);
         continue;
