@@ -266,7 +266,7 @@ void cyberzoo_perimeter_nav_periodic(void)
 
   struct FloatVect2 closest_point;
   float closest_dist = 0.f;
-  if (nav_state_is_rejoin_path() &&
+  if (navigation_state == REJOIN_PATH &&
       get_closest_edge_point(GetPosX(), GetPosY(), &closest_point, &closest_dist) &&
       dist_to_wp_path > closest_dist) {
     waypoint_move_xy_i(WP_PATH, POS_BFP_OF_REAL(closest_point.x), POS_BFP_OF_REAL(closest_point.y));
