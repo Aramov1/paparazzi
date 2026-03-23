@@ -8,7 +8,7 @@ using namespace std;
 
 struct contour_estimation cont_est;
 struct contour_threshold cont_thres;
-int show_threshold_overlay = 1;
+int show_threshold_overlay = 0;
 extern int gate_locked;
 extern int gate_tracking;
 

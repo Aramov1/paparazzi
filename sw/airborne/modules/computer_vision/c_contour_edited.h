@@ -16,43 +16,25 @@
  * You should have received a copy of the GNU General Public License
  * along with paparazzi; see the file COPYING.  If not, see
  * <http://www.gnu.org/licenses/>.
- *
  */
 
 /**
- * @file modules/computer_vision/opencv_contour.h
- * Detects contours of an obstacle used in the autonomous drone racing.
+ * @file modules/computer_vision/c_contour_edited.h
+ * Pure-C gate detector — no OpenCV dependency.
+ * Drop-in replacement for opencv_contour_edited.h
  */
 
-#ifndef CONTOUR_LOWER_Y
-#define CONTOUR_LOWER_Y 49
-#endif
-#ifndef CONTOUR_UPPER_Y
-#define CONTOUR_UPPER_Y 94
-#endif
-#ifndef CONTOUR_LOWER_U
-#define CONTOUR_LOWER_U 148
-#endif
-#ifndef CONTOUR_UPPER_U
-#define CONTOUR_UPPER_U 199
-#endif
-#ifndef CONTOUR_LOWER_V
-#define CONTOUR_LOWER_V 74
-#endif
-#ifndef CONTOUR_UPPER_V
-#define CONTOUR_UPPER_V 123
-#endif
+#ifndef C_CONTOUR_EDITED_H
+#define C_CONTOUR_EDITED_H
 
-#ifndef CV_YUV2BGR_Y422
-#define CV_YUV2BGR_Y422 cv::COLOR_YUV2BGR_Y422
-#endif
+#include <stdint.h>
 
 struct contour_estimation {
   int   gate_detected;
   float contour_d_x;
   float contour_d_y;
   float contour_d_z;
-  float contour_area;   // <-- add this line
+  float contour_area;
 };
 
 struct contour_threshold {
@@ -61,19 +43,11 @@ struct contour_threshold {
 };
 
 extern struct contour_estimation cont_est;
-extern struct contour_threshold cont_thres;
-
+extern struct contour_threshold  cont_thres;
 extern int show_threshold_overlay;
-extern int gate_locked;
-extern int gate_tracking;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 void find_contour(char *img, int width, int height);
 void contour_reset_tracking(void);
 
-#ifdef __cplusplus
-}
-#endif
+#endif /* C_CONTOUR_EDITED_H */

@@ -1,10 +1,18 @@
 <!DOCTYPE module SYSTEM "module.dtd">
-<module name="cv_detect_contour_edited" dir="computer_vision">
+<module name="c_detect_contour_edited" dir="computer_vision">
   <doc>
-    <description>Gate detection using blue TUDelft patch contours.</description>
+    <description>Gate detection using pure-C blob detector and decision tree color classifier. No OpenCV dependency.</description>
     <define name="DETECT_CONTOUR_EDITED_CAMERA" value="front_camera" description="Camera to use"/>
     <define name="DETECT_CONTOUR_EDITED_FPS" value="0" description="Max FPS, 0 = camera rate"/>
   </doc>
+  <settings>
+    <dl_settings>
+      <dl_settings name="GateDetector">
+         <dl_setting var="show_threshold_overlay" min="0" step="1" max="1" shortname="overlay"
+                  header="c_contour_edited"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
   <header>
     <file name="detect_contour_edited.h"/>
   </header>
@@ -13,7 +21,6 @@
     <file name="detect_contour_edited.c"/>
     <file name="c_contour_edited.c"/>
     <flag name="CFLAGS" value="Imodules/computer_vision"/>
-     <flag name="CFLAGS" value="DDEBUG_CONTOUR"/>
     <flag name="LDFLAGS" value="lm"/>
   </makefile>
   <makefile target="ap">
@@ -21,7 +28,5 @@
     <file name="c_contour_edited.c"/>
     <flag name="CFLAGS" value="Imodules/computer_vision"/>
     <flag name="LDFLAGS" value="lm"/>
-    <flag name="LDFLAGS" value="ldl"/>
-    <flag name="LDFLAGS" value="lpthread"/>
   </makefile>
 </module>

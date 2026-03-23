@@ -4,7 +4,7 @@
 #include "state.h"
 #include "generated/flight_plan.h"
 #include "math/pprz_algebra_float.h"
-#include "modules/computer_vision/opencv_contour_edited.h"
+#include "modules/computer_vision/c_contour_edited.h"
 #include <stdio.h>
 
 enum nav_state_t { SEARCH, TRACK, CROSS };

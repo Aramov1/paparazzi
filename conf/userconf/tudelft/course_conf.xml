@@ -23,7 +23,7 @@
   />
   <aircraft
    name="bebop_mav_course_exercise"
-   ac_id="44"
+   ac_id="46"
    airframe="airframes/tudelft/bebop_mav_course_exercise.xml"
    radio="radios/dummy.xml"
    telemetry="telemetry/default_rotorcraft.xml"
