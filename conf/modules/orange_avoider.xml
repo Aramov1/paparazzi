@@ -17,6 +17,10 @@ so you have to define which filter to use with the ORANGE_AVOIDER_VISUAL_DETECTI
     <dl_settings>
       <dl_settings name="OrangeAvoider">
          <dl_setting var="oa_color_count_frac" min="0" step="0.01" max="0.5"/>
+         <dl_setting var="oa_clear_color_count_frac" min="0" step="0.01" max="0.5"/>
+         <dl_setting var="oa_safe_max_speed" min="0" step="0.1" max="1"/>
+         <dl_setting var="oa_heading_slew_deg" min="0" step="5" max="90"/>
+         <dl_setting var="oa_rejoin_forward_cycles" min="1" step="1" max="10"/>
       </dl_settings>
     </dl_settings>
   </settings>

@@ -11,27 +11,28 @@ The avoidance strategy is to simply count the total number of orange pixels. Whe
 The color filter settings are set using the cv_detect_color_object. This module can run multiple filters simultaneously
 so you have to define which filter to use with the ORANGE_AVOIDER_VISUAL_DETECTION_ID setting.
     </description>
-    <define name="ORANGE_AVOIDER_VISUAL_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to receive for orange pixel detection."/>
+    <define name="WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to receive for orange pixel detection."/>
   </doc>
     <settings>
     <dl_settings>
-      <dl_settings name="OrangeAvoider">
-         <dl_setting var="nav_program_mode" min="0" step="1" max="2" shortname="nav_mode"
-                     values="SimpleReactive|WaypointMachine|Perimeter"/>
-         <dl_setting var="oa_color_count_frac" min="0" step="0.01" max="0.5"/>
-         <dl_setting var="oa_clear_color_count_frac" min="0" step="0.01" max="0.5"/>
-         <dl_setting var="oa_safe_max_speed" min="0.0" step="0.05" max="2.0"/>
-         <dl_setting var="oa_heading_slew_deg" min="0.5" step="0.5" max="45.0"/>
-         <dl_setting var="oa_rejoin_forward_cycles" min="0" step="1" max="50"/>
+      <dl_settings name="WaypointNavigation">
+         <dl_setting var="safe_max_speed" min="0.0" step="0.05" max="2.0"/>
+         <dl_setting var="obstacle_max_speed" min="0.0" step="0.05" max="1.0"/>
+         <dl_setting var="heading_slew_deg" min="0.5" step="0.5" max="45.0"/>
+         <dl_setting var="cycles_until_rejoin_path" min="1" step="1" max="20"/>
+         <dl_setting var="inner_edge_margin_m" min="0.1" step="0.05" max="1.0"/>
       </dl_settings>
     </dl_settings>
   </settings>
   
+  <dep>
+    <depends>cv_detect_color_object</depends>
+  </dep>
   <header>
     <file name="waypoint_navigation.h"/>
   </header>
-  <init fun="orange_avoider_init()"/>
-  <periodic fun="orange_avoider_periodic()" freq="4"/>
+  <init fun="waypoint_navigation_init()"/>
+  <periodic fun="waypoint_navigation_periodic()" freq="4"/>
   <makefile target="ap|nps">
     <file name="waypoint_navigation.c"/>
   </makefile>

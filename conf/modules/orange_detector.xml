@@ -1,0 +1,25 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="orange_detector" dir="cyberzoo_obstacle_detection">
+  <doc>
+    <description>
+      Detects number of orange pixels in frame, and determines whether an orange obstacle is in front of the camera
+    </description>
+    <define name="ORANGE_AVOIDER_VISUAL_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to receive for orange pixel detection."/>
+  </doc>
+  <settings>
+    <dl_settings>
+      <dl_settings name="OrangeDetection">
+        <dl_setting var="oa_color_count_frac" min="0.05" step="0.01" max="0.5"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
+  <header>
+    <file name="orange_detector.h"/>
+  </header>
+  <init fun="orange_detector_init()"/>
+  <periodic fun="orange_detector_periodic()" freq="4"/>
+  <makefile target="ap|nps">
+    <file name="orange_detector.c"/>
+  </makefile>
+</module>

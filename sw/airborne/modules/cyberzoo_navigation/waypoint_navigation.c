@@ -45,16 +45,6 @@ static uint8_t getClosestInnerEdgeInward(float *inward_x, float *inward_y, float
 static float angle_diff(float a, float b);
 static float clampf(float v, float lo, float hi);
 
-enum navigation_state_t {
-  SAFE,
-  OBSTACLE_FOUND,
-  SEARCH_FOR_SAFE_HEADING,
-  REJOIN_PATH,
-  OUT_OF_BOUNDS,
-  GO_TO_GATE
-};
-
-
 // define settings
 #ifndef NAV_PROGRAM_MODE
 #define NAV_PROGRAM_MODE 2
@@ -74,6 +64,8 @@ uint8_t edge_turn_bias_active = false; 	// when true, keep turning away from geo
 float edge_turn_bias_sign = 1.f;       	// +1 or -1 turn sign bias when edge_turn_bias_active
 uint8_t obstacle_detected = 0;
 int16_t obstacle_free_confidence = 0;
+uint8_t nav_state_is_rejoin_path(void);
+uint8_t orange_detected = 0;
 
 // --- SimpleReactive mode (nav_program_mode == 0) private state ---
 // Mirrors old_logic.c exactly. Uses color_count / sensor_turn_vote from ABI.
@@ -86,6 +78,9 @@ static int16_t sr_confidence        = 0;
 #ifndef WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID
 #define WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID ABI_BROADCAST
 #endif
+
+static int16_t sensor_turn_vote = 0;  // turn hint from obstacle sensor fusion
+
 static abi_event orange_detection_ev;
 static void orange_detection_cb(uint8_t __attribute__((unused)) sender_id,
                                 uint8_t __attribute__((unused)) orange_detected,
@@ -119,7 +114,7 @@ static void simple_reactive_periodic(void)
   const float   SR_MAX_DISTANCE   = 2.25f;
 
   // Confidence: +1 when clear, -3 when obstacle (matches old_logic.c)
-  if (color_count == 0) {
+  if (orange_detected == 0) {
     sr_confidence++;
   } else {
     sr_confidence -= 3;
@@ -192,7 +187,7 @@ void waypoint_navigation_periodic(void)
 
   // Mode 0: SimpleReactive — fully self-contained, skip shared state machine
   if (nav_program_mode == 0) {
-    NavSetMaxSpeed(oa_safe_max_speed);
+    NavSetMaxSpeed(safe_max_speed);
     simple_reactive_periodic();
     return;
   }
