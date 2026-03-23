@@ -40,6 +40,7 @@
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
 #include "errno.h"
+#include "viz_select.h" 
 
 #include "cv.h"
 #include "generated/airframe.h"
@@ -190,7 +191,9 @@ struct image_t *opticflow_module_calc(struct image_t *img, uint8_t camera_id)
   // Do the optical flow calculation
   static struct opticflow_result_t
     temp_result[ACTIVE_CAMERAS]; // static so that the number of corners is kept between frames
-  if (opticflow_calc_frame(&opticflow[camera_id], img, &temp_result[camera_id])) {
+  /* Sync show_flow with the shared visualization selector */
+    opticflow[camera_id].show_flow = (VIZ_ACTIVE == VIZ_OPFLOW) ? 1 : 0;
+    if (opticflow_calc_frame(&opticflow[camera_id], img, &temp_result[camera_id])) {
     // Copy the result if finished
     pthread_mutex_lock(&opticflow_mutex);
     if (opticflow_result[camera_id].flow_vectors != NULL) {

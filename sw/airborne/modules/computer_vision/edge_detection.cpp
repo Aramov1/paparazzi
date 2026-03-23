@@ -30,9 +30,9 @@
 #include <cstdio>
 #include <time.h>
 #include <pthread.h>
+#include "viz_select.h"
 
 extern pthread_mutex_t edge_detection_mutex;
-
 
 #ifndef EDGE_THRESHOLD
 #define EDGE_THRESHOLD 30
@@ -248,7 +248,7 @@ int edge_detection_run(char *img, int width, int height)
       if (edge_buf[i] == 128) {
         edge_buf[i] = 0;
       } else if (edge_buf[i] == 255) {
-        if (edge_draw) {
+        if (VIZ_ACTIVE == VIZ_EDGE) {
           buf[r * width * 2 + c * 2 + 1] = 255;
         }
         if      (c < third)       local_left++;

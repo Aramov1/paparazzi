@@ -1,0 +1,27 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="viz_select" dir="computer_vision">
+  <doc>
+    <description>
+      Selects which vision module draws its debug overlay to the RTP stream.
+      0=clean  1=edge  2=contour  3=opticflow  4=gate(reserved)
+      Detection logic in every module always runs regardless of this setting.
+    </description>
+  </doc>
+  <settings>
+    <dl_settings>
+      <dl_settings name="Visualization">
+        <dl_setting var="VIZ_ACTIVE" min="0" step="1" max="4"
+                    shortname="viz_select"
+                    values="clean|edge|contour|opflow|gate"
+                    module="computer_vision/viz_select"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
+  <header>
+    <file name="viz_select.h"/>
+  </header>
+  <makefile target="ap|nps">
+    <file name="viz_select.c"/>
+  </makefile>
+</module>

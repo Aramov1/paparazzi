@@ -2,12 +2,37 @@
 
 <module name="cv_detect_contour" dir="computer_vision">
   <doc>
-    <description>A module that detects the contour of a dronerace obstacle.
+    <description>Tree/contour detector using direct YUV thresholding.
+      No OpenCV dependency. Outputs detection result in cont_est.
     </description>
-
     <define name="DETECT_CONTOUR_CAMERA" value="front_camera|bottom_camera" description="Video device to use"/>
     <define name="DETECT_CONTOUR_FPS" value="0" description="The (maximum) frequency to run the calculations at. If zero, it will max out at the camera frame rate"/>
   </doc>
+
+  <settings>
+    <dl_settings>
+      <dl_settings name="Tree_Detector_Settings">
+        <dl_setting var="OPENCV_CONTOUR_Y_MIN"  min="0"   step="1"    max="255"  shortname="y_min"        module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_Y_MAX"  min="0"   step="1"    max="255"  shortname="y_max"        module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_U_MIN"  min="0"   step="1"    max="255"  shortname="u_min"        module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_U_MAX"  min="0"   step="1"    max="255"  shortname="u_max"        module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_V_MIN"  min="0"   step="1"    max="255"  shortname="v_min"        module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_V_MAX"  min="0"   step="1"    max="255"  shortname="v_max"        module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MORPH_OPEN_RADIUS"  min="0" step="1" max="10" shortname="open_r"  module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MORPH_CLOSE_RADIUS" min="0" step="1" max="10" shortname="close_r" module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MIN_COMPONENT_AREA"      min="1"   step="1"    max="10000" shortname="min_area"      module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MAX_COMPONENT_AREA_FRAC" min="0.0" step="0.01" max="1.0"   shortname="max_area_frac" module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MIN_BOX_WIDTH"       min="1"   step="1"    max="640" shortname="min_box_w"      module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MIN_BOX_HEIGHT"      min="1"   step="1"    max="480" shortname="min_box_h"      module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MAX_BOX_WIDTH_FRAC"  min="0.0" step="0.01" max="1.0" shortname="max_box_w_frac" module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MAX_BOX_HEIGHT_FRAC" min="0.0" step="0.01" max="1.0" shortname="max_box_h_frac" module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MIN_ASPECT_RATIO" min="0.01" step="0.01" max="5.0"  shortname="min_aspect"     module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MAX_ASPECT_RATIO" min="0.01" step="0.01" max="20.0" shortname="max_aspect"     module="computer_vision/opencv_contour"/>
+        <dl_setting var="OPENCV_CONTOUR_MIN_FILL_RATIO"   min="0.0"  step="0.01" max="1.0"  shortname="min_fill"       module="computer_vision/opencv_contour"/>
+      </dl_settings>
+    </dl_settings>
+  </settings>
+
   <header>
     <file name="detect_contour.h"/>
   </header>
@@ -15,7 +40,6 @@
   <makefile target="ap">
     <file name="detect_contour.c"/>
     <file name="opencv_contour.c"/>
-    <flag name="LDFLAGS" value="lm"/>
     <flag name="LDFLAGS" value="lpthread"/>
     <flag name="LDFLAGS" value="lrt"/>
   </makefile>

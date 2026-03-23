@@ -24,13 +24,12 @@
  * Pure C rewrite — no OpenCV, no C++, no RGB intermediate buffer.
  * Color filtering is performed directly on the UYVY (YCbCr) data.
  *
- * UYVY byte layout (4 bytes per pixel-pair):
- *   [ U | Y0 | V | Y1 ]
- *   pixel 0 uses Y0, pixel 1 uses Y1, both share U and V.
+ * All tunable parameters are global variables so Paparazzi's datalink
+ * layer can update them at runtime via the GCS settings panel.
  *
- * Green/foliage threshold in YUV space — six axis-aligned bounds
- * derived by projecting inRange(HSV, Scalar(30,60,40), Scalar(100,255,255))
- * through BT.601 full-range YCbCr.  Use tune_detector.py to recalibrate.
+ * This file contains ONLY detection logic — it never draws into the
+ * image buffer. All overlay drawing is handled by detect_contour.c
+ * and gated by VIZ_ACTIVE.
  */
 
 #include "opencv_contour.h"
@@ -40,23 +39,51 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 
-struct contour_estimation cont_est = { .contour_d_x = -1.0f };
+/* contour_mutex is defined in detect_contour.c */
+extern pthread_mutex_t contour_mutex;
+
+/* ================================================================
+ *  Global state
+ * ================================================================ */
+struct contour_estimation cont_est  = { .contour_d_x = -1.0f };
 struct contour_threshold  cont_thres;
 
 /* ================================================================
- *  Threshold #defines
- *  Paste updated values from tune_detector.py / tuner widget here.
+ *  Runtime-tunable parameters
  * ================================================================ */
-#define Y_MIN      40
-#define Y_MAX     235
-#define U_MIN      77
-#define U_MAX     146
-#define V_MIN      22
-#define V_MAX     133
 
-/* Maximum number of connected components the detector will track.
-   Increase if your scene can contain more distinct green blobs.    */
+/* YUV colour threshold */
+uint8_t OPENCV_CONTOUR_Y_MIN = 44;
+uint8_t OPENCV_CONTOUR_Y_MAX = 136;
+uint8_t OPENCV_CONTOUR_U_MIN = 86;
+uint8_t OPENCV_CONTOUR_U_MAX = 123;
+uint8_t OPENCV_CONTOUR_V_MIN = 65;
+uint8_t OPENCV_CONTOUR_V_MAX = 134;
+
+/* Morphology */
+uint8_t OPENCV_CONTOUR_MORPH_OPEN_RADIUS  = 1;
+uint8_t OPENCV_CONTOUR_MORPH_CLOSE_RADIUS = 2;
+
+/* Component area */
+uint32_t OPENCV_CONTOUR_MIN_COMPONENT_AREA      = 100;
+float    OPENCV_CONTOUR_MAX_COMPONENT_AREA_FRAC = 0.4f;
+
+/* Bounding box size */
+uint16_t OPENCV_CONTOUR_MIN_BOX_WIDTH       = 10;
+uint16_t OPENCV_CONTOUR_MIN_BOX_HEIGHT      = 10;
+float    OPENCV_CONTOUR_MAX_BOX_WIDTH_FRAC  = 0.8f;
+float    OPENCV_CONTOUR_MAX_BOX_HEIGHT_FRAC = 0.8f;
+
+/* Shape */
+float OPENCV_CONTOUR_MIN_ASPECT_RATIO = 0.3f;
+float OPENCV_CONTOUR_MAX_ASPECT_RATIO = 5.0f;
+float OPENCV_CONTOUR_MIN_FILL_RATIO   = 0.15f;
+
+/* ================================================================
+ *  Internal constants
+ * ================================================================ */
 #define MAX_COMPONENTS 128
 
 /* ================================================================
@@ -72,17 +99,8 @@ static inline void get_yuv(const uint8_t *buf, int width, int x, int y,
 {
   const uint8_t *p = buf + y * width * 2 + (x & ~1) * 2;
   *U = p[0];
-  Y = p[1 + (x & 1) * 2];   // p[1] even x, p[3] odd x */
+  *Y = p[1 + (x & 1) * 2];   /* p[1] even x, p[3] odd x */
   *V = p[2];
-}
-
-static inline void set_yuv(uint8_t *buf, int width, int x, int y,
-                            uint8_t Y, uint8_t U, uint8_t V)
-{
-  uint8_t *p = buf + y * width * 2 + (x & ~1) * 2;
-  p[0] = U;
-  p[1 + (x & 1) * 2] = Y;
-  p[2] = V;
 }
 
 /* ================================================================
@@ -97,20 +115,18 @@ static void yuv_threshold(const uint8_t *buf, uint8_t *mask,
       uint8_t Y, U, V;
       get_yuv(buf, width, x, y, &Y, &U, &V);
       mask[y * width + x] =
-        (Y >= Y_MIN && Y <= Y_MAX &&
-         U >= U_MIN && U <= U_MAX &&
-         V >= V_MIN && V <= V_MAX) ? 255 : 0;
+        (Y >= OPENCV_CONTOUR_Y_MIN && Y <= OPENCV_CONTOUR_Y_MAX &&
+         U >= OPENCV_CONTOUR_U_MIN && U <= OPENCV_CONTOUR_U_MAX &&
+         V >= OPENCV_CONTOUR_V_MIN && V <= OPENCV_CONTOUR_V_MAX) ? 255 : 0;
     }
   }
 }
 
 /* ================================================================
- *  Median blur 5×5 on binary mask
- *  Uses a simple partial-sort (insertion sort on 25 neighbours).
+ *  Median blur 5x5 on binary mask
  * ================================================================ */
 static void uint8_sort25(uint8_t *a)
 {
-  /* insertion sort — fast enough for 25 elements */
   int i, j;
   for (i = 1; i < 25; i++) {
     uint8_t key = a[i];
@@ -135,7 +151,7 @@ static void median_blur_5(uint8_t *mask, uint8_t *tmp, int width, int height)
         }
       }
       uint8_sort25(neigh);
-      tmp[y * width + x] = neigh[12];  /* median of 25 */
+      tmp[y * width + x] = neigh[12];
     }
   }
   memcpy(mask, tmp, (size_t)(width * height));
@@ -186,7 +202,6 @@ static void dilate(const uint8_t *src, uint8_t *dst,
   }
 }
 
-/* OPEN = erode then dilate */
 static void morph_open(uint8_t *mask, uint8_t *tmp,
                        int width, int height, int r)
 {
@@ -194,7 +209,6 @@ static void morph_open(uint8_t *mask, uint8_t *tmp,
   dilate(tmp,  mask, width, height, r);
 }
 
-/* CLOSE = dilate then erode */
 static void morph_close(uint8_t *mask, uint8_t *tmp,
                         int width, int height, int r)
 {
@@ -204,10 +218,6 @@ static void morph_close(uint8_t *mask, uint8_t *tmp,
 
 /* ================================================================
  *  Connected components — 4-connected BFS
- *
- *  labels[]  : output, same size as mask (0 = background)
- *  bfs_stack : caller-supplied scratch buffer, size = width*height
- *  Returns number of components found (background not counted).
  * ================================================================ */
 static int connected_components(const uint8_t *mask, int *labels,
                                  int *bfs_stack,
@@ -225,7 +235,6 @@ static int connected_components(const uint8_t *mask, int *labels,
   for (start = 0; start < total; start++) {
     if (mask[start] == 0 || labels[start] != 0) continue;
 
-    /* BFS */
     int head = 0, tail = 0;
     labels[start] = next_label;
     bfs_stack[tail++] = start;
@@ -284,174 +293,30 @@ static void compute_bounding_rects(const int *labels, int num_labels,
 }
 
 /* ================================================================
- *  Drawing — operate directly on UYVY buffer
- *
- *  Pre-computed YUV colour constants (BT.601):
- *    White  : Y=235, U=128, V=128
- *    Green  : Y=145, U= 54, V= 34
- *    Magenta: Y= 63, U=193, V=185
- * ================================================================ */
-static void draw_rect_yuv(uint8_t *buf, int width, int height,
-                           int rx, int ry, int rw, int rh,
-                           uint8_t Y, uint8_t U, uint8_t V,
-                           int thickness)
-{
-  int t, x, y;
-  for (t = 0; t < thickness; t++) {
-    int x0 = rx - t,        y0 = ry - t;
-    int x1 = rx + rw + t - 1, y1 = ry + rh + t - 1;
-    for (x = x0; x <= x1; x++) {
-      if (x < 0 || x >= width) continue;
-      if (y0 >= 0 && y0 < height) set_yuv(buf, width, x, y0, Y, U, V);
-      if (y1 >= 0 && y1 < height) set_yuv(buf, width, x, y1, Y, U, V);
-    }
-    for (y = y0 + 1; y < y1; y++) {
-      if (y < 0 || y >= height) continue;
-      if (x0 >= 0 && x0 < width) set_yuv(buf, width, x0, y, Y, U, V);
-      if (x1 >= 0 && x1 < width) set_yuv(buf, width, x1, y, Y, U, V);
-    }
-  }
-}
-
-static void draw_circle_yuv(uint8_t *buf, int width, int height,
-                             int cx, int cy, int radius,
-                             uint8_t Y, uint8_t U, uint8_t V)
-{
-  int dx, dy;
-  for (dy = -radius; dy <= radius; dy++) {
-    for (dx = -radius; dx <= radius; dx++) {
-      if (dx * dx + dy * dy <= radius * radius) {
-        int px = cx + dx, py = cy + dy;
-        if (px >= 0 && px < width && py >= 0 && py < height)
-          set_yuv(buf, width, px, py, Y, U, V);
-      }
-    }
-  }
-}
-
-/* ================================================================
- *  Minimal 5×7 bitmap font (ASCII 32–90)
- * ================================================================ */
-static const uint8_t FONT5x7[][7] = {
-  {0x00,0x00,0x00,0x00,0x00,0x00,0x00}, /* ' ' */
-  {0x04,0x04,0x04,0x04,0x00,0x04,0x00}, /* '!' */
-  {0x0A,0x0A,0x00,0x00,0x00,0x00,0x00}, /* '"' */
-  {0x0A,0x1F,0x0A,0x1F,0x0A,0x00,0x00}, /* '#' */
-  {0x04,0x0F,0x14,0x0E,0x05,0x1E,0x04}, /* '$' */
-  {0x18,0x19,0x02,0x04,0x13,0x03,0x00}, /* '%' */
-  {0x0C,0x12,0x14,0x08,0x15,0x12,0x0D}, /* '&' */
-  {0x04,0x04,0x00,0x00,0x00,0x00,0x00}, /* '\'' */
-  {0x02,0x04,0x08,0x08,0x08,0x04,0x02}, /* '(' */
-  {0x08,0x04,0x02,0x02,0x02,0x04,0x08}, /* ')' */
-  {0x00,0x04,0x15,0x0E,0x15,0x04,0x00}, /* '*' */
-  {0x00,0x04,0x04,0x1F,0x04,0x04,0x00}, /* '+' */
-  {0x00,0x00,0x00,0x00,0x06,0x04,0x08}, /* ',' */
-  {0x00,0x00,0x00,0x1F,0x00,0x00,0x00}, /* '-' */
-  {0x00,0x00,0x00,0x00,0x00,0x06,0x00}, /* '.' */
-  {0x01,0x02,0x02,0x04,0x08,0x10,0x00}, /* '/' */
-  {0x0E,0x11,0x13,0x15,0x19,0x11,0x0E}, /* '0' */
-  {0x04,0x0C,0x04,0x04,0x04,0x04,0x0E}, /* '1' */
-  {0x0E,0x11,0x01,0x02,0x04,0x08,0x1F}, /* '2' */
-  {0x1F,0x02,0x04,0x02,0x01,0x11,0x0E}, /* '3' */
-  {0x02,0x06,0x0A,0x12,0x1F,0x02,0x02}, /* '4' */
-  {0x1F,0x10,0x1E,0x01,0x01,0x11,0x0E}, /* '5' */
-  {0x06,0x08,0x10,0x1E,0x11,0x11,0x0E}, /* '6' */
-  {0x1F,0x01,0x02,0x04,0x08,0x08,0x08}, /* '7' */
-  {0x0E,0x11,0x11,0x0E,0x11,0x11,0x0E}, /* '8' */
-  {0x0E,0x11,0x11,0x0F,0x01,0x02,0x0C}, /* '9' */
-  {0x00,0x06,0x00,0x00,0x06,0x00,0x00}, /* ':' */
-  {0x00,0x06,0x00,0x00,0x06,0x04,0x08}, /* ';' */
-  {0x02,0x04,0x08,0x10,0x08,0x04,0x02}, /* '<' */
-  {0x00,0x00,0x1F,0x00,0x1F,0x00,0x00}, /* '=' */
-  {0x10,0x08,0x04,0x02,0x04,0x08,0x10}, /* '>' */
-  {0x0E,0x11,0x01,0x02,0x04,0x00,0x04}, /* '?' */
-  {0x0E,0x11,0x17,0x15,0x17,0x10,0x0F}, /* '@' */
-  {0x0E,0x11,0x11,0x1F,0x11,0x11,0x11}, /* 'A' */
-  {0x1E,0x11,0x11,0x1E,0x11,0x11,0x1E}, /* 'B' */
-  {0x0E,0x11,0x10,0x10,0x10,0x11,0x0E}, /* 'C' */
-  {0x1C,0x12,0x11,0x11,0x11,0x12,0x1C}, /* 'D' */
-  {0x1F,0x10,0x10,0x1E,0x10,0x10,0x1F}, /* 'E' */
-  {0x1F,0x10,0x10,0x1E,0x10,0x10,0x10}, /* 'F' */
-  {0x0E,0x11,0x10,0x17,0x11,0x11,0x0F}, /* 'G' */
-  {0x11,0x11,0x11,0x1F,0x11,0x11,0x11}, /* 'H' */
-  {0x0E,0x04,0x04,0x04,0x04,0x04,0x0E}, /* 'I' */
-  {0x07,0x02,0x02,0x02,0x02,0x12,0x0C}, /* 'J' */
-  {0x11,0x12,0x14,0x18,0x14,0x12,0x11}, /* 'K' */
-  {0x10,0x10,0x10,0x10,0x10,0x10,0x1F}, /* 'L' */
-  {0x11,0x1B,0x15,0x15,0x11,0x11,0x11}, /* 'M' */
-  {0x11,0x19,0x15,0x13,0x11,0x11,0x11}, /* 'N' */
-  {0x0E,0x11,0x11,0x11,0x11,0x11,0x0E}, /* 'O' */
-  {0x1E,0x11,0x11,0x1E,0x10,0x10,0x10}, /* 'P' */
-  {0x0E,0x11,0x11,0x11,0x15,0x12,0x0D}, /* 'Q' */
-  {0x1E,0x11,0x11,0x1E,0x14,0x12,0x11}, /* 'R' */
-  {0x0F,0x10,0x10,0x0E,0x01,0x01,0x1E}, /* 'S' */
-  {0x1F,0x04,0x04,0x04,0x04,0x04,0x04}, /* 'T' */
-  {0x11,0x11,0x11,0x11,0x11,0x11,0x0E}, /* 'U' */
-  {0x11,0x11,0x11,0x11,0x11,0x0A,0x04}, /* 'V' */
-  {0x11,0x11,0x11,0x15,0x15,0x1B,0x11}, /* 'W' */
-  {0x11,0x11,0x0A,0x04,0x0A,0x11,0x11}, /* 'X' */
-  {0x11,0x11,0x0A,0x04,0x04,0x04,0x04}, /* 'Y' */
-  {0x1F,0x01,0x02,0x04,0x08,0x10,0x1F}, /* 'Z' */
-};
-#define FONT_NCHARS ((int)(sizeof(FONT5x7) / sizeof(FONT5x7[0])))
-
-static void draw_text_yuv(uint8_t *buf, int width, int height,
-                           int ox, int oy, const char *text,
-                           uint8_t Y, uint8_t U, uint8_t V,
-                           int scale)
-{
-  int cx = ox;
-  const char *p;
-  for (p = text; *p; p++) {
-    int idx = (unsigned char)*p - 32;
-    if (idx >= 0 && idx < FONT_NCHARS) {
-      const uint8_t *glyph = FONT5x7[idx];
-      int row, col, sy, sx;
-      for (row = 0; row < 7; row++) {
-        for (col = 0; col < 5; col++) {
-          if (glyph[row] & (0x10 >> col)) {
-            for (sy = 0; sy < scale; sy++) {
-              for (sx = 0; sx < scale; sx++) {
-                int px = cx + col * scale + sx;
-                int py = oy + row * scale + sy;
-                if (px >= 0 && px < width && py >= 0 && py < height)
-                  set_yuv(buf, width, px, py, Y, U, V);
-              }
-            }
-          }
-        }
-      }
-    }
-    cx += (5 + 1) * scale;
-  }
-}
-
-/* ================================================================
  *  Main entry point
+ *  Updates cont_est with the best detected tree.
+ *  Never writes to the image buffer — drawing is done in
+ *  detect_contour.c after this function returns.
  * ================================================================ */
 void find_contour(char *img, int width, int height)
 {
   int n_pixels = width * height;
 
-  /* ------ allocate working buffers --------------------------------
-     All on the heap so stack usage stays small on embedded targets. */
   uint8_t *mask      = (uint8_t *)malloc((size_t)n_pixels);
   uint8_t *tmp       = (uint8_t *)malloc((size_t)n_pixels);
   int     *labels    = (int     *)malloc((size_t)(n_pixels * (int)sizeof(int)));
   int     *bfs_stack = (int     *)malloc((size_t)(n_pixels * (int)sizeof(int)));
 
-  /* Fixed-size arrays for accepted trees (MAX_COMPONENTS entries) */
   Rect2 all_rects [MAX_COMPONENTS];
   int   all_areas [MAX_COMPONENTS];
   Rect2 tree_boxes[MAX_COMPONENTS];
   float tree_scores[MAX_COMPONENTS];
   int   n_trees = 0;
 
-  uint8_t *buf = (uint8_t *)img;
+  const uint8_t *buf = (const uint8_t *)img;
 
   if (!mask || !tmp || !labels || !bfs_stack) {
-    /* out of memory — report no detection and bail */
-    struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f };
+    struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0 };
     pthread_mutex_lock(&contour_mutex);
     cont_est = local_est;
     pthread_mutex_unlock(&contour_mutex);
@@ -459,34 +324,30 @@ void find_contour(char *img, int width, int height)
     return;
   }
 
-  /* ------ 1. YUV threshold ---------------------------------------- */
+  /* 1. YUV threshold */
   yuv_threshold(buf, mask, width, height);
 
-  /* ------ 3. Median blur 5×5 -------------------------------------- */
+  /* 2. Median blur 5x5 */
   median_blur_5(mask, tmp, width, height);
 
-  /* ------ 4. Morphology: OPEN (r=1) then CLOSE (r=2) -------------- */
-  morph_open (mask, tmp, width, height, 1);
-  morph_close(mask, tmp, width, height, 2);
+  /* 3. Morphology: OPEN then CLOSE */
+  morph_open (mask, tmp, width, height, OPENCV_CONTOUR_MORPH_OPEN_RADIUS);
+  morph_close(mask, tmp, width, height, OPENCV_CONTOUR_MORPH_CLOSE_RADIUS);
 
-  /* ------ 5. Erase bottom third ------------------------------------ */
+  /* 4. Erase bottom third */
   {
     int cut_y = (int)(2.0f * (float)height / 3.0f);
     memset(mask + cut_y * width, 0, (size_t)((height - cut_y) * width));
   }
 
-  /* ------ 6. Connected components ---------------------------------- */
-  int num_labels = connected_components(mask, labels, bfs_stack,
-                                        width, height);
-
-  /* Guard against more components than our fixed arrays can hold */
+  /* 5. Connected components */
+  int num_labels = connected_components(mask, labels, bfs_stack, width, height);
   if (num_labels > MAX_COMPONENTS) num_labels = MAX_COMPONENTS;
 
-  /* ------ 7. Bounding boxes ---------------------------------------- */
-  compute_bounding_rects(labels, num_labels, width, height,
-                         all_rects, all_areas);
+  /* 6. Bounding boxes */
+  compute_bounding_rects(labels, num_labels, width, height, all_rects, all_areas);
 
-  /* ------ 8. Filter components ------------------------------------- */
+  /* 7. Filter components */
   {
     int i;
     for (i = 0; i < num_labels && n_trees < MAX_COMPONENTS; i++) {
@@ -494,17 +355,19 @@ void find_contour(char *img, int width, int height)
       Rect2 *r  = &all_rects[i];
       float  aspect, fill;
 
-      if (a < 100)                              continue;
-      if (a > (int)(0.4f * (float)(width * height))) continue;
-      if (r->w < 10 || r->h < 10)              continue;
-      if (r->w > (int)(0.8f * (float)width) ||
-          r->h > (int)(0.8f * (float)height))  continue;
+      if (a < (int)OPENCV_CONTOUR_MIN_COMPONENT_AREA) continue;
+      if (a > (int)(OPENCV_CONTOUR_MAX_COMPONENT_AREA_FRAC * (float)(width * height))) continue;
+      if (r->w < (int)OPENCV_CONTOUR_MIN_BOX_WIDTH ||
+          r->h < (int)OPENCV_CONTOUR_MIN_BOX_HEIGHT) continue;
+      if (r->w > (int)(OPENCV_CONTOUR_MAX_BOX_WIDTH_FRAC  * (float)width)  ||
+          r->h > (int)(OPENCV_CONTOUR_MAX_BOX_HEIGHT_FRAC * (float)height)) continue;
 
       aspect = (float)r->h / (float)r->w;
-      if (aspect < 0.3f || aspect > 5.0f)      continue;
+      if (aspect < OPENCV_CONTOUR_MIN_ASPECT_RATIO ||
+          aspect > OPENCV_CONTOUR_MAX_ASPECT_RATIO) continue;
 
       fill = (float)a / (float)(r->w * r->h);
-      if (fill < 0.15f)                         continue;
+      if (fill < OPENCV_CONTOUR_MIN_FILL_RATIO) continue;
 
       tree_boxes[n_trees]  = *r;
       tree_scores[n_trees] = (float)a;
@@ -512,9 +375,9 @@ void find_contour(char *img, int width, int height)
     }
   }
 
-  /* ------ 9. Best tree → cont_est --------------------------------- */
+  /* 8. Best tree -> cont_est */
   if (n_trees > 0) {
-    int   best_idx = 0;
+    int   best_idx   = 0;
     float best_score = tree_scores[0];
     float best_cx, best_cy, area, dist;
     int   i;
@@ -542,33 +405,37 @@ void find_contour(char *img, int width, int height)
                             / (float)tree_boxes[best_idx].w;
     local_est.contour_d_z = -(best_cy - (float)height * 0.5f)
                             / (float)tree_boxes[best_idx].h;
+    local_est.n_trees = n_trees;
+    local_est.best_x  = (int)best_cx;
+    local_est.best_y  = (int)best_cy;
+    local_est.best_w  = tree_boxes[best_idx].w;
+    local_est.best_h  = tree_boxes[best_idx].h;
+
     pthread_mutex_lock(&contour_mutex);
     cont_est = local_est;
     pthread_mutex_unlock(&contour_mutex);
 
-    /* SEND ABI MESSAGE HERE */
-    /*AbiSendMsgTREE_POSITION(ABI_SENDER_TREE_DETECTOR,
+    /* ABI message — uncomment when message ID is defined
+    AbiSendMsgTREE_POSITION(ABI_SENDER_TREE_DETECTOR,
                             cont_est.contour_d_x,
                             cont_est.contour_d_y,
                             cont_est.contour_d_z,
-                            1);*/
+                            1); */
 
   } else {
-    struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f };
+    struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0 };
     pthread_mutex_lock(&contour_mutex);
     cont_est = local_est;
     pthread_mutex_unlock(&contour_mutex);
 
-    /* SEND ABI MESSAGE HERE TOO */
-    /*AbiSendMsgTREE_POSITION(ABI_SENDER_TREE_DETECTOR,
+    /* ABI message — uncomment when message ID is defined
+    AbiSendMsgTREE_POSITION(ABI_SENDER_TREE_DETECTOR,
                             cont_est.contour_d_x,
                             cont_est.contour_d_y,
                             cont_est.contour_d_z,
-                            0);*/
-
+                            0); */
   }
 
-  /* ------ 11. Free working buffers --------------------------------- */
   free(mask);
   free(tmp);
   free(labels);
