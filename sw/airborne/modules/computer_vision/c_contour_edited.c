@@ -281,6 +281,7 @@ static int find_blobs(const uint8_t *mask, int width, int height, Blob *blobs)
     blobs[b].w    = blobs[b].max_x - blobs[b].min_x + 1;
     blobs[b].h    = blobs[b].max_y - blobs[b].min_y + 1;
     blobs[b].area = blobs[b].w * blobs[b].h;
+    // blobs[b].area = blobs[b].pixel_count;  /* [F4] area = actual filled pixels */
     blobs[b].cx   = blobs[b].min_x + blobs[b].w / 2;
     blobs[b].cy   = blobs[b].min_y + blobs[b].h / 2;
     if (blobs[b].pixel_count < MIN_BLOB_AREA) blobs[b].active = 0;  /* [F4] */
@@ -426,22 +427,110 @@ void find_contour(char *img, int width, int height)
       int64_t sep64 = sep, xd64 = x_diff;
 
       /* [F1] blob_max corrected from 14000 → 12000 to match OpenCV */
-      if (ai > aj) { if (ai64 * 10 > aj64 * 17) continue; }
-      else         { if (aj64 * 10 > ai64 * 17) continue; }
-      if (total > 25000)            continue;
-      if (ai > 12000 || aj > 12000) continue;  /* [F1] was 14000 */
-      if (sep64 * 20 < (int64_t)height * 3) continue;
-      if (sep64 * 10 > (int64_t)height * 7) continue;
-      if (xd64  * 20 > (int64_t)width  * 3) continue;
-      if (wi64  * 2  < hi64 * 3)   continue;
-      if (wj64  * 2  < hj64 * 3)   continue;
-      if (wi64  * 2  > hi64 * 7)   continue;
-      if (wj64  * 2  > hj64 * 7)   continue;
+      // if (ai > aj) { if (ai64 * 10 > aj64 * 17) continue; }
+      // else         { if (aj64 * 10 > ai64 * 17) continue; }
+      // if (total > 25000)            continue;
+      // if (ai > 12000 || aj > 12000) continue;  /* [F1] was 14000 */
+      // if (sep64 * 20 < (int64_t)height * 3) continue;
+      // if (sep64 * 10 > (int64_t)height * 7) continue;
+      // if (xd64  * 20 > (int64_t)width  * 3) continue;
+      // if (wi64  * 2  < hi64 * 3)   continue;
+      // if (wj64  * 2  < hj64 * 3)   continue;
+      // if (wi64  * 2  > hi64 * 7)   continue;
+      // if (wj64  * 2  > hj64 * 7)   continue;
 
+      // int64_t asp_num = wi64 * hj64;
+      // int64_t asp_den = wj64 * hi64;
+      // if (asp_num > asp_den) { if (asp_num * 5 > asp_den * 8) continue; }
+      // else                   { if (asp_den * 5 > asp_num * 8) continue; }
+
+      /* --- Ratio check --- */
+      if (ai > aj) {
+        if (ai64 * 10 > aj64 * 17) {
+          printf("[REJECT] ratio too big (top bigger): ai=%d aj=%d ratio=%.2f\n",
+                ai, aj, (float)ai/aj);
+          continue;
+        }
+      } else {
+        if (aj64 * 10 > ai64 * 17) {
+          printf("[REJECT] ratio too big (bottom bigger): ai=%d aj=%d ratio=%.2f\n",
+                ai, aj, (float)aj/ai);
+          continue;
+        }
+      }
+
+      /* --- Total area --- */
+      if (total > 25000) {
+        printf("[REJECT] total too big: total=%d\n", total);
+        continue;
+      }
+
+      /* --- Individual blob size --- */
+      if (ai > 12000 || aj > 12000) {
+        printf("[REJECT] blob too big: ai=%d aj=%d\n", ai, aj);
+        continue;
+      }
+
+      /* --- Vertical separation --- */
+      if (sep64 * 20 < (int64_t)height * 3) {
+        printf("[REJECT] sep too small: sep=%d (%.2f%% height)\n",
+              sep, 100.f * sep / height);
+        continue;
+      }
+
+      if (sep64 * 10 > (int64_t)height * 7) {
+        printf("[REJECT] sep too large: sep=%d (%.2f%% height)\n",
+              sep, 100.f * sep / height);
+        continue;
+      }
+
+      /* --- Horizontal alignment --- */
+      if (xd64 * 10 > (int64_t)width * 3) {
+        printf("[REJECT] x_diff too large: xd=%d (%.2f%% width)\n",
+              x_diff, 100.f * x_diff / width);
+        continue;
+      }
+
+      /* --- Aspect ratio --- */
+      if (wi64 * 2 < hi64 * 4) {
+        printf("[REJECT] blob i too tall: w=%d h=%d ratio=%.2f\n",
+              wi, hi, (float)wi/hi);
+        continue;
+      }
+
+      if (wj64 * 2 < hj64 * 4) {
+        printf("[REJECT] blob j too tall: w=%d h=%d ratio=%.2f\n",
+              wj, hj, (float)wj/hj);
+        continue;
+      }
+
+      if (wi64 * 2 > hi64 * 7) {
+        printf("[REJECT] blob i too wide: w=%d h=%d ratio=%.2f\n",
+              wi, hi, (float)wi/hi);
+        continue;
+      }
+
+      if (wj64 * 2 > hj64 * 7) {
+        printf("[REJECT] blob j too wide: w=%d h=%d ratio=%.2f\n",
+              wj, hj, (float)wj/hj);
+        continue;
+      }
+
+      /* --- Cross aspect consistency --- */
       int64_t asp_num = wi64 * hj64;
       int64_t asp_den = wj64 * hi64;
-      if (asp_num > asp_den) { if (asp_num * 5 > asp_den * 7) continue; }
-      else                   { if (asp_den * 5 > asp_num * 7) continue; }
+
+      if (asp_num > asp_den) {
+        if (asp_num * 5 > asp_den * 8) {
+          printf("[REJECT] aspect mismatch (case 1)\n");
+          continue;
+        }
+      } else {
+        if (asp_den * 5 > asp_num * 8) {
+          printf("[REJECT] aspect mismatch (case 2)\n");
+          continue;
+        }
+      }
 
       /* [F2] Restored area-ratio term in score — was only x_diff*1000/width.
        *      OpenCV score: ratio + (x_diff/width)*2
