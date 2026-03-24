@@ -57,7 +57,6 @@ void orange_detector_periodic(void) {
     }
 
     Bound(orange_free_confidence, 0, 4);
-
-    AbiSendMsgORANGE_OBSTACLE_DETECTION(ORANGE_OBSTACLE_DETECTION_ID, orange_detected, orange_free_confidence);
+    AbiSendMsgCYBERZOO_OBSTACLE_DETECTION(ORANGE_OBSTACLE_DETECTION_ID, orange_detected, 0, orange_free_confidence);
 
 }

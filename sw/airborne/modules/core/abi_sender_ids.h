@@ -597,7 +597,7 @@
 #endif
 
 /*
- * VISUAL_DETECTION communication (message 27)
+ * VISUAL_DETECTION communication (message 27) -> only for colour count detection!
 */
 #ifndef COLOR_OBJECT_DETECTION1_ID
 #define COLOR_OBJECT_DETECTION1_ID 1
@@ -684,15 +684,19 @@
 #define LIDAR_DATA_VL53L5CX_ID 1
 #endif
 
+#ifndef ABI_SENDER_TREE_DETECTOR_ID
+#define ABI_SENDER_TREE_DETECTOR_ID 42
+#endif
+
 /*
- * ID of ORANGE_OBSTACLE_DETECTION sender
+ * IDs of CYBERZOO_OBSTACLE_DETECTION sender -> sender found in obstacle_avoider module for competition solution
  */
 #ifndef ORANGE_OBSTACLE_DETECTION_ID
 #define ORANGE_OBSTACLE_DETECTION_ID 1
 #endif
 
-#ifndef ABI_SENDER_TREE_DETECTOR_ID
-#define ABI_SENDER_TREE_DETECTOR_ID 42
+#ifndef FULL_OBSTACLE_DETECTION_ID
+#define FULL_OBSTACLE_DETECTION_ID 2
 #endif
 
 

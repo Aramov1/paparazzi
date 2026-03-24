@@ -68,14 +68,6 @@ uint8_t oa_use_edge      = OA_USE_EDGE;
 uint8_t oa_use_floor     = OA_USE_FLOOR;
 uint8_t oa_use_tree      = OA_USE_TREE;
 
-// Unique sender ID — waypoint_navigation binds to ABI_BROADCAST so it
-// receives from any sender without extra configuration.
-#define OA_VISUAL_DETECTION_SENDER_ID 43
-
-// Quality sent when obstacle detected — large enough to exceed navigation
-// module's threshold (0.18 * camera_w * camera_h) at any camera resolution.
-#define OA_OBSTACLE_QUALITY 100000
-
 static float    oa_ttc        = 0.f;
 static float    oa_div_left   = 0.f;
 static float    oa_div_right  = 0.f;
@@ -95,7 +87,7 @@ static void oa_telem_send(struct transport_tx *trans, struct link_device *dev)
     &edge_count_left, &edge_count_center, &edge_count_right,
     &floor_area_left, &floor_area_center, &floor_area_right,
     &oa_contour_dy, &oa_turn_vote, &oa_obstacle,
-    &nav_state_u8, &obstacle_free_confidence);
+    &nav_state_u8);
 }
 #endif
 
@@ -232,9 +224,7 @@ void obstacle_avoider_run(void)
   oa_obstacle   = obstacle_detected ? 1 : 0;
 
   // --- Publish to navigation module ---
-  int32_t quality   = obstacle_detected ? OA_OBSTACLE_QUALITY : 0;
-  int16_t direction = (int16_t)turn_vote;
-  AbiSendMsgVISUAL_DETECTION(OA_VISUAL_DETECTION_SENDER_ID, direction, 0, 0, 0, quality, 0);
+  AbiSendMsgCYBERZOO_OBSTACLE_DETECTION(FULL_OBSTACLE_DETECTION_ID, obstacle_detected, turn_vote, 0);
 
   if (local_vectors) {
     free(local_vectors);

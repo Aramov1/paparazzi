@@ -62,6 +62,7 @@
     <!--module name="bebop_ae_awb">
       <define name="CV_AE_AWB_VERBOSE" value="0" />
     </module-->
+    <module name="video_thread"/>
     <module name="video_capture">
       <define name="VIDEO_CAPTURE_CAMERA" value="front_camera"/>
       <define name="VIDEO_CAPTURE_FPS" value="10"/>
@@ -77,7 +78,7 @@
     </module>
 
     <!-- NEW TEST MODULES -->
-    <module name="flip_bebop"/>
+<!--    <module name="flip_bebop"/>-->
     <module name="cyberzoo_perimeter_waypoints"/>
 
     <module name="orange_detector">
@@ -86,6 +87,7 @@
 
     <module name="waypoint_navigation">
       <define name="WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID" value="ORANGE_OBSTACLE_DETECTION_ID"/>
+      <define name="WAYPOINT_NAVIGATION_OBSTACLE_DETECTION_ID" value="FULL_OBSTACLE_DETECTION_ID"/>
     </module>
 
     <module name="video_rtp_stream">

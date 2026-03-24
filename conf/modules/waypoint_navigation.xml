@@ -12,6 +12,7 @@ The color filter settings are set using the cv_detect_color_object. This module 
 so you have to define which filter to use with the ORANGE_AVOIDER_VISUAL_DETECTION_ID setting.
     </description>
     <define name="WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID" value="ABI_BROADCAST" description="which VISUAL_DETECTION message to receive for orange pixel detection."/>
+    <define name="WAYPOINT_NAVIGATION_OBSTACLE_DETECTION_ID" value="ABI_BROADCAST" description="which OBSTACLE_DETECTION message to receive for obstacle detection (only one sender actually)."/>
   </doc>
     <settings>
     <dl_settings>

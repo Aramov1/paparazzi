@@ -2422,7 +2422,7 @@
       <field name="turn_vote"    type="int32"              >combined turn direction vote (+right -left)</field>
       <field name="obstacle"     type="uint8"              >1=obstacle detected 0=clear</field>
       <field name="nav_state"    type="uint8"              >navigation state: 0=SAFE 1=OBS_FOUND 2=SEARCH 3=REJOIN 4=OOB</field>
-      <field name="ofc"          type="int16"              >obstacle free confidence</field>
+<!--      <field name="ofc"          type="int16"              >obstacle free confidence</field>-->
     </message>
 
     <message name="GPS_RELPOS" id="251">

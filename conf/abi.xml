@@ -189,15 +189,6 @@
       <field name="extra"        type="int16_t">Extra field for options like detector source etc</field>
     </message>
 
-    <message name="ORANGE_OBSTACLE_DETECTION" id="42">
-      <field name="pixel_x"      type="int16_t">Center pixel X</field>
-      <field name="pixel_y"      type="int16_t">Center pixel Y</field>
-      <field name="pixel_width"  type="int16_t">Width in pixels</field>
-      <field name="pixel_height" type="int16_t">Height in pixels</field>
-      <field name="quality"      type="int32_t">Detection quality</field>
-      <field name="extra"        type="int16_t">Extra field for options like detector source etc</field>
-    </message>
-
     <message name="JOYSTICK" id="28">
       <!--
            This message can be used to send command inputs from a joystick or equivalent
@@ -282,6 +273,12 @@
     <message name="ACTUATORS_T4_IN" id="41">
       <field name="actuators_t4_in_ptr" type="struct ActuatorsT4In *">Pointer pointing at the actuators_t4_in struct</field>
       <field name="actuators_t4_extra_data_in_ptr" type="float *">Pointer pointing at the actuators_t4_extra_data_in array</field>
+    </message>
+
+    <message name="CYBERZOO_OBSTACLE_DETECTION" id="43">
+      <field name="obstacle_detected_flag" type="bool"> Flag to check whether an obstacle has been detected, from the combination of obstacle detection methods (opticflow, edges, trees, floor) </field>
+      <field name="turn_dir" type="int"> Turn direction choice after obstacle detection for best avoidance </field>
+      <field name="obstacle_free_confidence" type="int16_t"> Confidence value that there is no obstacle in view, currently only used for orange avoider logic</field>
     </message>
 
   </msg_class>
