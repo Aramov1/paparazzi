@@ -82,14 +82,24 @@ static int16_t sr_confidence        = 0;
 
 static int16_t sensor_turn_vote = 0;  // turn hint from obstacle sensor fusion
 
-static abi_event orange_detection_ev;
-static void orange_detection_cb(uint8_t __attribute__((unused)) sender_id,
-                                uint8_t __attribute__((unused)) orange_detected,
-                                int16_t __attribute__((unused)) orange_free_confidence)
-                              {
-                                obstacle_detected = orange_detected;
-                                obstacle_free_confidence = orange_free_confidence;
-                              }
+static abi_event visual_detection_ev;
+static void visual_detection_cb(uint8_t __attribute__((unused)) sender_id,
+                                int16_t  pixel_x,
+                                int16_t  __attribute__((unused)) pixel_y,
+                                int16_t  __attribute__((unused)) pixel_width,
+                                int16_t  __attribute__((unused)) pixel_height,
+                                int32_t  quality,
+                                int16_t  __attribute__((unused)) extra)
+{
+  obstacle_detected = (quality > 0) ? 1 : 0;
+  sensor_turn_vote  = pixel_x;
+  if (!obstacle_detected) {
+    obstacle_free_confidence++;
+  } else {
+    obstacle_free_confidence = (obstacle_free_confidence >= 3) ? obstacle_free_confidence - 3 : 0;
+  }
+  Bound(obstacle_free_confidence, 0, cycles_until_rejoin_path + 4);
+}
 
 
 // Initialisation function, setting the colour filter, random seed and heading_increment
@@ -99,8 +109,8 @@ void waypoint_navigation_init(void)
   chooseAvoidanceHeadingIncrement();
   NavSetMaxSpeed(safe_max_speed);
 
-  // bind our colorfilter callbacks to receive the color filter outputs
-  AbiBindMsgORANGE_OBSTACLE_DETECTION(WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID, &orange_detection_ev, orange_detection_cb);
+  // bind obstacle_avoider ABI to receive fused detection output
+  AbiBindMsgVISUAL_DETECTION(WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID, &visual_detection_ev, visual_detection_cb);
 }
 
 
