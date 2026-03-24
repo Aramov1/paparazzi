@@ -170,19 +170,19 @@ struct image_t *contour_func(struct image_t *img, uint8_t camera_id)
   int w = img->w, h = img->h;
 
   /* Detection always runs — updates cont_est regardless of VIZ_ACTIVE */
-  find_contour((char *)buf, w, h);
+  find_contour_cv((char *)buf, w, h);
 
   /* ---- Debug overlay — only when this module is selected ---- */
   if (VIZ_ACTIVE == VIZ_CONTOUR) {
 
     /* Read the full cont_est snapshot under mutex */
     pthread_mutex_lock(&contour_mutex);
-    float  dx      = cont_est.contour_d_x;
-    int    n_trees = cont_est.n_trees;
-    int    bx      = cont_est.best_x;
-    int    by      = cont_est.best_y;
-    int    bw      = cont_est.best_w;
-    int    bh      = cont_est.best_h;
+    float  dx      = cont_est_cv.contour_d_x;
+    int    n_trees = cont_est_cv.n_trees;
+    int    bx      = cont_est_cv.best_x;
+    int    by      = cont_est_cv.best_y;
+    int    bw      = cont_est_cv.best_w;
+    int    bh      = cont_est_cv.best_h;
     pthread_mutex_unlock(&contour_mutex);
 
     if (dx >= 0.0f && n_trees > 0) {
@@ -220,6 +220,6 @@ void detect_contour_init(void)
   cv_add_to_device(&DETECT_CONTOUR_CAMERA, contour_func, DETECT_CONTOUR_FPS, 0);
 
   /* Default colour thresholds (cyberzoo) */
-  cont_thres.lower_y = 16;  cont_thres.lower_u = 135; cont_thres.lower_v = 80;
-  cont_thres.upper_y = 100; cont_thres.upper_u = 175; cont_thres.upper_v = 165;
+  cont_thres_cv.lower_y = 16;  cont_thres_cv.lower_u = 135; cont_thres_cv.lower_v = 80;
+  cont_thres_cv.upper_y = 100; cont_thres_cv.upper_u = 175; cont_thres_cv.upper_v = 165;
 }

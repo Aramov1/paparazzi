@@ -13,6 +13,7 @@
  */
 
 #include "modules/cyberzoo_navigation/waypoint_navigation.h"
+#include "modules/gate_navigator/gate_nav.h"
 #include "firmwares/rotorcraft/navigation.h"
 #include "generated/airframe.h"
 #include "state.h"
@@ -185,9 +186,28 @@ void waypoint_navigation_periodic(void)
     return;
   }
 
-  // Mode 0: SimpleReactive — fully self-contained, skip shared state machine
+  // --- Gate detection priority: checked before ALL other logic ---
+
+  // Entry: gate detected from any state except during obstacle avoidance
+  if (gate_tracking
+      && navigation_state != GATE_TRACKING
+      && navigation_state != OBSTACLE_FOUND
+      && navigation_state != SEARCH_FOR_SAFE_HEADING) {
+    navigation_state = GATE_TRACKING;
+    printf("[WAY_NAV] -> GATE_TRACKING\n");
+  }
+
+  // Exit: gate lost/crossed — return to path (gate_nav already back in passive SEARCH)
+  if (!gate_tracking && navigation_state == GATE_TRACKING) {
+    rejoin_counter   = 0;
+    navigation_state = REJOIN_PATH;
+    printf("[WAY_NAV] GATE_TRACKING -> REJOIN_PATH (gate done/lost)\n");
+  }
+
+  // Mode 0: SimpleReactive — gate_nav has full control while tracking
   if (nav_program_mode == 0) {
     NavSetMaxSpeed(safe_max_speed);
+    if (gate_tracking) return;  // gate_nav handles heading + waypoints
     simple_reactive_periodic();
     return;
   }
@@ -300,6 +320,18 @@ void waypoint_navigation_periodic(void)
         increase_nav_heading(heading_increment);
         obstacle_free_confidence = 0;
         navigation_state = SEARCH_FOR_SAFE_HEADING;
+      }
+      break;
+    }
+
+    case GATE_TRACKING: {
+      // gate_nav.c exclusively controls nav.heading, WP_GOAL, WP_TRAJECTORY.
+      // waypoint_navigation only monitors the obstacle safety exit condition.
+      // Normal exit (gate_tracking == 0) is handled at the top of this function.
+      if (obstacle_detected) {
+        gate_navigator_abort();  // force gate_nav to passive SEARCH immediately
+        navigation_state = OBSTACLE_FOUND;
+        printf("[WAY_NAV] GATE_TRACKING -> OBSTACLE_FOUND (obstacle alarm)\n");
       }
       break;
     }

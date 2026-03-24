@@ -47,8 +47,8 @@ extern pthread_mutex_t contour_mutex;
 /* ================================================================
  *  Global state
  * ================================================================ */
-struct contour_estimation cont_est  = { .contour_d_x = -1.0f };
-struct contour_threshold  cont_thres;
+struct contour_estimation cont_est_cv  = { .contour_d_x = -1.0f };
+struct contour_threshold  cont_thres_cv;
 
 /* ================================================================
  *  Runtime-tunable parameters
@@ -298,7 +298,7 @@ static void compute_bounding_rects(const int *labels, int num_labels,
  *  Never writes to the image buffer — drawing is done in
  *  detect_contour.c after this function returns.
  * ================================================================ */
-void find_contour(char *img, int width, int height)
+void find_contour_cv(char *img, int width, int height)
 {
   int n_pixels = width * height;
 
@@ -318,7 +318,7 @@ void find_contour(char *img, int width, int height)
   if (!mask || !tmp || !labels || !bfs_stack) {
     struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0 };
     pthread_mutex_lock(&contour_mutex);
-    cont_est = local_est;
+    cont_est_cv = local_est;
     pthread_mutex_unlock(&contour_mutex);
     free(mask); free(tmp); free(labels); free(bfs_stack);
     return;
@@ -412,7 +412,7 @@ void find_contour(char *img, int width, int height)
     local_est.best_h  = tree_boxes[best_idx].h;
 
     pthread_mutex_lock(&contour_mutex);
-    cont_est = local_est;
+    cont_est_cv = local_est;
     pthread_mutex_unlock(&contour_mutex);
 
     /* ABI message — uncomment when message ID is defined
@@ -425,7 +425,7 @@ void find_contour(char *img, int width, int height)
   } else {
     struct contour_estimation local_est = { -1.0f, 0.0f, 0.0f, 0, 0, 0, 0, 0 };
     pthread_mutex_lock(&contour_mutex);
-    cont_est = local_est;
+    cont_est_cv = local_est;
     pthread_mutex_unlock(&contour_mutex);
 
     /* ABI message — uncomment when message ID is defined

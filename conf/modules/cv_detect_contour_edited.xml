@@ -1,0 +1,27 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+<module name="cv_detect_contour_edited" dir="computer_vision">
+  <doc>
+    <description>Gate detection using blue TUDelft patch contours.</description>
+    <define name="DETECT_CONTOUR_EDITED_CAMERA" value="front_camera" description="Camera to use"/>
+    <define name="DETECT_CONTOUR_EDITED_FPS" value="0" description="Max FPS, 0 = camera rate"/>
+  </doc>
+  <header>
+    <file name="detect_contour_edited.h"/>
+  </header>
+  <init fun="detect_contour_edited_init()"/>
+  <makefile target="nps">
+    <file name="detect_contour_edited.c"/>
+    <file name="c_contour_edited.c"/>
+    <flag name="CFLAGS" value="Imodules/computer_vision"/>
+     <flag name="CFLAGS" value="DDEBUG_CONTOUR"/>
+    <flag name="LDFLAGS" value="lm"/>
+  </makefile>
+  <makefile target="ap">
+    <file name="detect_contour_edited.c"/>
+    <file name="c_contour_edited.c"/>
+    <flag name="CFLAGS" value="Imodules/computer_vision"/>
+    <flag name="LDFLAGS" value="lm"/>
+    <flag name="LDFLAGS" value="ldl"/>
+    <flag name="LDFLAGS" value="lpthread"/>
+  </makefile>
+</module>

@@ -51,8 +51,8 @@ struct contour_threshold {
   int upper_y, upper_u, upper_v;
 };
 
-extern struct contour_estimation cont_est;
-extern struct contour_threshold  cont_thres;
+extern struct contour_estimation cont_est_cv;
+extern struct contour_threshold  cont_thres_cv;
 
 /* ----------------------------------------------------------------
  *  Runtime-tunable parameters
@@ -90,6 +90,6 @@ extern float    OPENCV_CONTOUR_MIN_FILL_RATIO;
 /* ----------------------------------------------------------------
  *  Main processing entry point
  * ---------------------------------------------------------------- */
-extern void find_contour(char *img, int width, int height);
+extern void find_contour_cv(char *img, int width, int height);
 
 #endif /* OPENCV_CONTOUR_H */

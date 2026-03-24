@@ -10,7 +10,7 @@ enum navigation_state_t {
   SEARCH_FOR_SAFE_HEADING,
   REJOIN_PATH,
   OUT_OF_BOUNDS,
-  GO_TO_GATE
+  GATE_TRACKING   /* gate_nav owns heading+waypoints; waypoint_navigation monitors safety */
 };
 
 // settings

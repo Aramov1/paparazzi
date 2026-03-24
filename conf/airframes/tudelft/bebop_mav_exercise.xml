@@ -67,6 +67,12 @@
       <define name="DETECT_CONTOUR_FPS" value="1"/>
     </module>
 
+    <!-- Gate detection using blue TUDelft patch contours -->
+    <module name="cv_detect_contour_edited">
+      <define name="DETECT_CONTOUR_EDITED_CAMERA" value="front_camera"/>
+      <define name="DETECT_CONTOUR_EDITED_FPS" value="1"/>
+    </module>
+
     <!-- Edge detection -->
     <module name="cv_edge_detection">
       <define name="EDGE_DETECTION_CAMERA" value="front_camera"/>
@@ -79,6 +85,8 @@
     <!-- Navigation: perimeter following + obstacle avoidance state machine -->
     <module name="cyberzoo_perimeter_waypoints"/>
     <module name="waypoint_navigation"/>
+    <!-- Gate detection and navigation FSM -->
+    <module name="gate_navigator"/>
 
     <!-- Streaming -->
     <module name="video_rtp_stream">
