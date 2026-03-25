@@ -7,12 +7,19 @@
 
   <firmware name="rotorcraft">
     <target name="ap" board="bebop">
-      <define name="HARD_FLOAT" value="1"/>
+      <define name="HARD_FLOAT" value="1"/> 
       <configure name="SUFFIX_VERSION" value="-9"/>
       <define name="VIDEO_CAPTURE_PATH" value="/data/ftp/internal_000/images"/>
       <define name="LOGGER_FILE_PATH" value="/data/ftp/internal_000/log"/>
       <define name="MT9V117_TARGET_FPS" value="20"/>
-      
+      <module name="ahrs" type="int_cmpl_quat">
+        <configure name="USE_MAGNETOMETER" value="FALSE"/>
+        <define name="AHRS_USE_GPS_HEADING" value="TRUE"/>
+      </module>
+      <module name="c_detect_contour_edited">
+        <define name="DETECT_CONTOUR_EDITED_CAMERA" value="front_camera"/>
+      </module>
+      <module name="gate_navigator"/>
       <!-- Detect orange -->
       <!-- <define name="COLOR_OBJECT_DETECTOR_LUM_MIN1" value="30"/>
       <define name="COLOR_OBJECT_DETECTOR_LUM_MAX1" value="190"/>
@@ -26,10 +33,10 @@
       <define name="CONTOUR_UPPER_U" value="196"/>
       <define name="CONTOUR_LOWER_V" value="62"/>
       <define name="CONTOUR_UPPER_V" value="113"/>
-      <module name="c_detect_contour_edited">
+      <!-- <module name="c_detect_contour_edited">
         <define name="DETECT_CONTOUR_EDITED_CAMERA" value="front_camera"/>
-      </module>
-      <module name="gate_navigator"/>
+      </module> -->
+      <module name="gate_navigator"/> 
     </target>
     <target name="nps" board="pc">
       <module name="fdm" type="gazebo"/>

@@ -6,54 +6,54 @@
  *
  * Decision tree trained on gate images (YUV color space).
  * max_depth : 4
- * Test accuracy: 0.9978
+ * Test accuracy: 0.9977
  *
  * Sklearn tree (for reference):
- * |--- U <= 160.50
- * |   |--- V <= 116.50
- * |   |   |--- Y <= 122.50
- * |   |   |   |--- U <= 158.50
+ * |--- U <= 151.50
+ * |   |--- U <= 148.50
+ * |   |   |--- U <= 145.50
+ * |   |   |   |--- V <= 101.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- U >  158.50
+ * |   |   |   |--- V >  101.50
  * |   |   |   |   |--- class: 0
- * |   |   |--- Y >  122.50
- * |   |   |   |--- V <= 108.50
+ * |   |   |--- U >  145.50
+ * |   |   |   |--- Y <= 128.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- V >  108.50
+ * |   |   |   |--- Y >  128.50
  * |   |   |   |   |--- class: 0
- * |   |--- V >  116.50
- * |   |   |--- U <= 150.50
- * |   |   |   |--- V <= 118.50
+ * |   |--- U >  148.50
+ * |   |   |--- Y <= 128.50
+ * |   |   |   |--- Y <= 85.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- V >  118.50
+ * |   |   |   |--- Y >  85.50
  * |   |   |   |   |--- class: 0
- * |   |   |--- U >  150.50
- * |   |   |   |--- Y <= 135.50
+ * |   |   |--- Y >  128.50
+ * |   |   |   |--- Y <= 130.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- Y >  135.50
+ * |   |   |   |--- Y >  130.50
  * |   |   |   |   |--- class: 0
- * |--- U >  160.50
- * |   |--- Y <= 85.50
- * |   |   |--- V <= 82.50
- * |   |   |   |--- U <= 172.50
+ * |--- U >  151.50
+ * |   |--- Y <= 126.50
+ * |   |   |--- Y <= 85.50
+ * |   |   |   |--- Y <= 82.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- U >  172.50
+ * |   |   |   |--- Y >  82.50
+ * |   |   |   |   |--- class: 0
+ * |   |   |--- Y >  85.50
+ * |   |   |   |--- V <= 71.00
+ * |   |   |   |   |--- class: 0
+ * |   |   |   |--- V >  71.00
  * |   |   |   |   |--- class: 255
- * |   |   |--- V >  82.50
- * |   |   |   |--- Y <= 54.50
+ * |   |--- Y >  126.50
+ * |   |   |--- Y <= 129.50
+ * |   |   |   |--- V <= 74.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- Y >  54.50
- * |   |   |   |   |--- class: 255
- * |   |--- Y >  85.50
- * |   |   |--- V <= 110.50
- * |   |   |   |--- Y <= 95.50
- * |   |   |   |   |--- class: 255
- * |   |   |   |--- Y >  95.50
+ * |   |   |   |--- V >  74.50
  * |   |   |   |   |--- class: 0
- * |   |   |--- V >  110.50
- * |   |   |   |--- U <= 165.50
+ * |   |   |--- Y >  129.50
+ * |   |   |   |--- Y <= 131.50
  * |   |   |   |   |--- class: 0
- * |   |   |   |--- U >  165.50
+ * |   |   |   |--- Y >  131.50
  * |   |   |   |   |--- class: 0
  *
  * Drop-in replacement for cv::inRange() in find_contour():
@@ -87,30 +87,30 @@
  */
 static inline uint8_t classify_yuv_pixel(uint8_t y, uint8_t u, uint8_t v)
 {
-    if (u <= 160u) {
-        if (v <= 116u) {
-            if (y <= 122u) {
-                if (u <= 158u) {
+    if (u <= 151u) {
+        if (u <= 148u) {
+            if (u <= 145u) {
+                if (v <= 101u) {
                     return 0u;
                 } else {
                     return 0u;
                 }
             } else {
-                if (v <= 108u) {
+                if (y <= 128u) {
                     return 0u;
                 } else {
                     return 0u;
                 }
             }
         } else {
-            if (u <= 150u) {
-                if (v <= 118u) {
+            if (y <= 128u) {
+                if (y <= 85u) {
                     return 0u;
                 } else {
                     return 0u;
                 }
             } else {
-                if (y <= 135u) {
+                if (y <= 130u) {
                     return 0u;
                 } else {
                     return 0u;
@@ -118,29 +118,29 @@ static inline uint8_t classify_yuv_pixel(uint8_t y, uint8_t u, uint8_t v)
             }
         }
     } else {
-        if (y <= 85u) {
-            if (v <= 82u) {
-                if (u <= 172u) {
+        if (y <= 126u) {
+            if (y <= 85u) {
+                if (y <= 82u) {
                     return 0u;
                 } else {
-                    return 1u;
+                    return 0u;
                 }
             } else {
-                if (y <= 54u) {
+                if (v <= 71u) {
                     return 0u;
                 } else {
                     return 1u;
                 }
             }
         } else {
-            if (v <= 110u) {
-                if (y <= 95u) {
-                    return 1u;
+            if (y <= 129u) {
+                if (v <= 74u) {
+                    return 0u;
                 } else {
                     return 0u;
                 }
             } else {
-                if (u <= 165u) {
+                if (y <= 131u) {
                     return 0u;
                 } else {
                     return 0u;

@@ -45,6 +45,7 @@ struct contour_threshold {
 extern struct contour_estimation cont_est;
 extern struct contour_threshold  cont_thres;
 extern int show_threshold_overlay;
+// extern int gate_tracking;   /* set by navigator: 1 = actively tracking gate */
 
 
 void find_contour(char *img, int width, int height);

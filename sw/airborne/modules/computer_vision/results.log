@@ -1,0 +1,669 @@
+[SPLIT] blob 55: peak1=row278(74) peak2=row448(71) valley=row304(0)
+[SPLIT] top: w=100 h=152 px=1815 cx=118 cy=228
+[SPLIT] bot: w=137 h=213 px=1410 cx=99 cy=411
+[REJECT] ratio too big (top bigger): ai=15200 aj=2800 ratio=5.43
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test01.jpg (240x520) ===
+  no gate
+  overlay  → out_test01.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test02.jpg (240x520) ===
+  no gate
+  overlay  → out_test02.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test03.jpg (240x520) ===
+  no gate
+  overlay  → out_test03.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test04.jpg (240x520) ===
+  no gate
+  overlay  → out_test04.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test05.jpg (240x520) ===
+  no gate
+  overlay  → out_test05.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test06.jpg (240x520) ===
+  no gate
+  overlay  → out_test06.png
+[SPLIT] blob 56: peak1=row277(77) peak2=row444(82) valley=row302(0)
+[SPLIT] top: w=103 h=147 px=1722 cx=120 cy=228
+[SPLIT] bot: w=136 h=216 px=1542 cx=104 cy=411
+[REJECT] sep too small: sep=70 (13.46% height)
+[REJECT] ratio too big (bottom bigger): ai=1955 aj=15141 ratio=7.74
+[REJECT] ratio too big (top bigger): ai=15141 aj=2592 ratio=5.84
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test07.jpg (240x520) ===
+  no gate
+  overlay  → out_test07.png
+[SPLIT] blob 0: peak1=row224(92) peak2=row406(85) valley=row249(0)
+[SPLIT] top: w=120 h=148 px=2310 cx=122 cy=175
+[SPLIT] bot: w=130 h=249 px=1589 cx=117 cy=374
+[REJECT] ratio too big (bottom bigger): ai=1554 aj=17760 ratio=11.43
+[REJECT] ratio too big (top bigger): ai=17760 aj=3045 ratio=5.83
+[REJECT] ratio too big (bottom bigger): ai=1554 aj=3045 ratio=1.96
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test08.jpg (240x520) ===
+  no gate
+  overlay  → out_test08.png
+[SPLIT] blob 8: peak1=row134(13) peak2=row357(6) valley=row171(0)
+[SPLIT] top: w=16 h=114 px=722 cx=60 cy=114
+[SPLIT] bot: w=9 h=288 px=214 cx=67 cy=316
+[REJECT] ratio too big (bottom bigger): ai=1824 aj=3520 ratio=1.93
+[REJECT] x_diff too large: xd=61 (25.42% width)
+[REJECT] ratio too big (top bigger): ai=1824 aj=754 ratio=2.42
+[REJECT] ratio too big (top bigger): ai=3520 aj=1675 ratio=2.10
+[REJECT] ratio too big (top bigger): ai=3520 aj=754 ratio=4.67
+[REJECT] ratio too big (top bigger): ai=1675 aj=754 ratio=2.22
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test09.jpg (240x520) ===
+  no gate
+  overlay  → out_test09.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test100.jpg (240x520) ===
+  no gate
+  overlay  → out_test100.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test101.jpg (240x520) ===
+  no gate
+  overlay  → out_test101.png
+[REJECT] ratio too big (bottom bigger): ai=901 aj=74753 ratio=82.97
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test102.jpg (240x520) ===
+  no gate
+  overlay  → out_test102.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test103.jpg (240x520) ===
+  no gate
+  overlay  → out_test103.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test104.jpg (240x520) ===
+  no gate
+  overlay  → out_test104.png
+[SPLIT] blob 10: peak1=row269(7) peak2=row452(11) valley=row311(0)
+[SPLIT] top: w=10 h=99 px=412 cx=103 cy=261
+[SPLIT] bot: w=56 h=206 px=209 cx=80 cy=415
+[REJECT] sep too small: sep=62 (11.92% height)
+[REJECT] ratio too big (bottom bigger): ai=990 aj=1870 ratio=1.89
+[REJECT] blob i too wide: w=77 h=20 ratio=3.85
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test105.jpg (240x520) ===
+  no gate
+  overlay  → out_test105.png
+[REJECT] ratio too big (bottom bigger): ai=1152 aj=2136 ratio=1.85
+[REJECT] ratio too big (bottom bigger): ai=1152 aj=2600 ratio=2.26
+[REJECT] blob i too wide: w=89 h=24 ratio=3.71
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test106.jpg (240x520) ===
+  no gate
+  overlay  → out_test106.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test107.jpg (240x520) ===
+  no gate
+  overlay  → out_test107.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test108.jpg (240x520) ===
+  no gate
+  overlay  → out_test108.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test109.jpg (240x520) ===
+  no gate
+  overlay  → out_test109.png
+[REJECT] ratio too big (bottom bigger): ai=1120 aj=3003 ratio=2.68
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test10.jpg (240x520) ===
+  no gate
+  overlay  → out_test10.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test110.jpg (240x520) ===
+  no gate
+  overlay  → out_test110.png
+[REJECT] blob i too wide: w=98 h=26 ratio=3.77
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test111.jpg (240x520) ===
+  no gate
+  overlay  → out_test111.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test112.jpg (240x520) ===
+  no gate
+  overlay  → out_test112.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test113.jpg (240x520) ===
+  no gate
+  overlay  → out_test113.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test114.jpg (240x520) ===
+  no gate
+  overlay  → out_test114.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test115.jpg (240x520) ===
+  no gate
+  overlay  → out_test115.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test116.jpg (240x520) ===
+  no gate
+  overlay  → out_test116.png
+[SPLIT] blob 35: peak1=row323(8) peak2=row361(9) valley=row341(2)
+[SPLIT] top: w=16 h=58 px=306 cx=82 cy=312
+[SPLIT] bot: w=26 h=79 px=472 cx=69 cy=381
+[REJECT] ratio too big (bottom bigger): ai=928 aj=2054 ratio=2.21
+[REJECT] ratio too big (bottom bigger): ai=928 aj=2673 ratio=2.88
+[REJECT] sep too small: sep=60 (11.54% height)
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test117.jpg (240x520) ===
+  no gate
+  overlay  → out_test117.png
+[REJECT] ratio too big (top bigger): ai=2562 aj=1008 ratio=2.54
+[REJECT] ratio too big (top bigger): ai=2562 aj=910 ratio=2.82
+[REJECT] sep too small: sep=7 (1.35% height)
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test118.jpg (240x520) ===
+  no gate
+  overlay  → out_test118.png
+[SPLIT] blob 11: peak1=row80(111) peak2=row261(89) valley=row105(0)
+[SPLIT] top: w=168 h=105 px=2414 cx=104 cy=52
+[SPLIT] bot: w=132 h=253 px=1294 cx=126 cy=232
+[REJECT] ratio too big (top bigger): ai=17640 aj=3720 ratio=4.74
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test119.jpg (240x520) ===
+  no gate
+  overlay  → out_test119.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test11.jpg (240x520) ===
+  no gate
+  overlay  → out_test11.png
+[SPLIT] blob 7: peak1=row19(109) peak2=row204(99) valley=row44(0)
+[SPLIT] top: w=171 h=44 px=2246 cx=86 cy=22
+[SPLIT] bot: w=154 h=381 px=1622 cx=113 cy=235
+[REJECT] sep too small: sep=5 (0.96% height)
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test120.jpg (240x520) ===
+  no gate
+  overlay  → out_test120.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test121.jpg (240x520) ===
+  no gate
+  overlay  → out_test121.png
+[SPLIT] blob 62: peak1=row306(71) peak2=row469(69) valley=row335(0)
+[SPLIT] top: w=108 h=176 px=1812 cx=124 cy=247
+[SPLIT] bot: w=131 h=182 px=858 cx=112 cy=427
+[REJECT] ratio too big (top bigger): ai=1946 aj=1024 ratio=1.90
+[REJECT] ratio too big (top bigger): ai=1946 aj=918 ratio=2.12
+[REJECT] ratio too big (bottom bigger): ai=1946 aj=19008 ratio=9.77
+[REJECT] sep too small: sep=8 (1.54% height)
+[REJECT] ratio too big (top bigger): ai=19008 aj=1024 ratio=18.56
+[REJECT] ratio too big (top bigger): ai=19008 aj=918 ratio=20.71
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test122.jpg (240x520) ===
+  no gate
+  overlay  → out_test122.png
+[SPLIT] blob 1: peak1=row234(89) peak2=row409(79) valley=row261(0)
+[SPLIT] top: w=127 h=189 px=2528 cx=119 cy=166
+[SPLIT] bot: w=123 h=235 px=1098 cx=121 cy=379
+[REJECT] ratio too big (bottom bigger): ai=2556 aj=24003 ratio=9.39
+[REJECT] ratio too big (top bigger): ai=24003 aj=3379 ratio=7.10
+[REJECT] x_diff too large: xd=81 (33.75% width)
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test123.jpg (240x520) ===
+  no gate
+  overlay  → out_test123.png
+[REJECT] ratio too big (bottom bigger): ai=3720 aj=50985 ratio=13.71
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test124.jpg (240x520) ===
+  no gate
+  overlay  → out_test124.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test125.jpg (240x520) ===
+  no gate
+  overlay  → out_test125.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test126.jpg (240x520) ===
+  no gate
+  overlay  → out_test126.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test127.jpg (240x520) ===
+  no gate
+  overlay  → out_test127.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test128.jpg (240x520) ===
+  no gate
+  overlay  → out_test128.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test129.jpg (240x520) ===
+  no gate
+  overlay  → out_test129.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test12.jpg (240x520) ===
+  no gate
+  overlay  → out_test12.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test130.jpg (240x520) ===
+  no gate
+  overlay  → out_test130.png
+[REJECT] ratio too big (bottom bigger): ai=420 aj=1638 ratio=3.90
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test131.jpg (240x520) ===
+  no gate
+  overlay  → out_test131.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test132.jpg (240x520) ===
+  no gate
+  overlay  → out_test132.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test133.jpg (240x520) ===
+  no gate
+  overlay  → out_test133.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test134.jpg (240x520) ===
+  no gate
+  overlay  → out_test134.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test135.jpg (240x520) ===
+  no gate
+  overlay  → out_test135.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test13.jpg (240x520) ===
+  no gate
+  overlay  → out_test13.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test14.jpg (240x520) ===
+  no gate
+  overlay  → out_test14.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test15.jpg (240x520) ===
+  no gate
+  overlay  → out_test15.png
+[SPLIT] blob 55: peak1=row258(75) peak2=row413(88) valley=row277(0)
+[SPLIT] top: w=99 h=98 px=1198 cx=127 cy=228
+[SPLIT] bot: w=158 h=240 px=1661 cx=98 cy=398
+[REJECT] ratio too big (top bigger): ai=9702 aj=1060 ratio=9.15
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test16.jpg (240x520) ===
+  no gate
+  overlay  → out_test16.png
+[SPLIT] blob 9: peak1=row190(10) peak2=row484(10) valley=row198(0)
+[SPLIT] top: w=12 h=62 px=305 cx=84 cy=167
+[SPLIT] bot: w=34 h=318 px=403 cx=58 cy=358
+[REJECT] ratio too big (bottom bigger): ai=744 aj=1936 ratio=2.60
+[REJECT] ratio too big (bottom bigger): ai=744 aj=3132 ratio=4.21
+[REJECT] blob i too wide: w=88 h=22 ratio=4.00
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test17.jpg (240x520) ===
+  no gate
+  overlay  → out_test17.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test18.jpg (240x520) ===
+  no gate
+  overlay  → out_test18.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test19.jpg (240x520) ===
+  no gate
+  overlay  → out_test19.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test20.jpg (240x520) ===
+  no gate
+  overlay  → out_test20.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test21.jpg (240x520) ===
+  no gate
+  overlay  → out_test21.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test22.jpg (240x520) ===
+  no gate
+  overlay  → out_test22.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test23.jpg (240x520) ===
+  no gate
+  overlay  → out_test23.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test24.jpg (240x520) ===
+  no gate
+  overlay  → out_test24.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test25.jpg (240x520) ===
+  no gate
+  overlay  → out_test25.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test26.jpg (240x520) ===
+  no gate
+  overlay  → out_test26.png
+[SPLIT] blob 59: peak1=row372(60) peak2=row503(98) valley=row387(0)
+[SPLIT] top: w=89 h=72 px=783 cx=127 cy=351
+[SPLIT] bot: w=146 h=130 px=1214 cx=99 cy=453
+[REJECT] ratio too big (top bigger): ai=6408 aj=784 ratio=8.17
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test27.jpg (240x520) ===
+  no gate
+  overlay  → out_test27.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test28.jpg (240x520) ===
+  no gate
+  overlay  → out_test28.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test29.jpg (240x520) ===
+  no gate
+  overlay  → out_test29.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test30.jpg (240x520) ===
+  no gate
+  overlay  → out_test30.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test31.jpg (240x520) ===
+  no gate
+  overlay  → out_test31.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test32.jpg (240x520) ===
+  no gate
+  overlay  → out_test32.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test33.jpg (240x520) ===
+  no gate
+  overlay  → out_test33.png
+[REJECT] ratio too big (top bigger): ai=13986 aj=2024 ratio=6.91
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test34.jpg (240x520) ===
+  no gate
+  overlay  → out_test34.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test35.jpg (240x520) ===
+  no gate
+  overlay  → out_test35.png
+[REJECT] ratio too big (bottom bigger): ai=644 aj=2592 ratio=4.02
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test36.jpg (240x520) ===
+  no gate
+  overlay  → out_test36.png
+[REJECT] ratio too big (bottom bigger): ai=714 aj=2958 ratio=4.14
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test37.jpg (240x520) ===
+  no gate
+  overlay  → out_test37.png
+[REJECT] ratio too big (bottom bigger): ai=784 aj=4176 ratio=5.33
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test38.jpg (240x520) ===
+  no gate
+  overlay  → out_test38.png
+[REJECT] ratio too big (bottom bigger): ai=9256 aj=84346 ratio=9.11
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test39.jpg (240x520) ===
+  no gate
+  overlay  → out_test39.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test40.jpg (240x520) ===
+  no gate
+  overlay  → out_test40.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test41.jpg (240x520) ===
+  no gate
+  overlay  → out_test41.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test42.jpg (240x520) ===
+  no gate
+  overlay  → out_test42.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test43.jpg (240x520) ===
+  no gate
+  overlay  → out_test43.png
+[SPLIT] blob 62: peak1=row300(69) peak2=row447(121) valley=row315(0)
+[SPLIT] top: w=98 h=50 px=682 cx=133 cy=290
+[SPLIT] bot: w=189 h=202 px=2489 cx=99 cy=417
+[REJECT] ratio too big (top bigger): ai=4900 aj=850 ratio=5.76
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test44.jpg (240x520) ===
+  no gate
+  overlay  → out_test44.png
+[SPLIT] blob 7: peak1=row234(76) peak2=row395(128) valley=row250(0)
+[SPLIT] top: w=102 h=60 px=806 cx=135 cy=220
+[SPLIT] bot: w=199 h=268 px=2863 cx=104 cy=385
+[REJECT] ratio too big (top bigger): ai=6120 aj=936 ratio=6.54
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test45.jpg (240x520) ===
+  no gate
+  overlay  → out_test45.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test46.jpg (240x520) ===
+  no gate
+  overlay  → out_test46.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test47.jpg (240x520) ===
+  no gate
+  overlay  → out_test47.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test48.jpg (240x520) ===
+  no gate
+  overlay  → out_test48.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test49.jpg (240x520) ===
+  no gate
+  overlay  → out_test49.png
+[SPLIT] blob 1: peak1=row12(69) peak2=row207(113) valley=row34(0)
+[SPLIT] top: w=142 h=34 px=975 cx=91 cy=17
+[SPLIT] bot: w=170 h=323 px=2074 cx=125 cy=196
+[REJECT] ratio too big (top bigger): ai=4828 aj=1541 ratio=3.13
+[REJECT] ratio too big (top bigger): ai=4828 aj=546 ratio=8.84
+[REJECT] ratio too big (top bigger): ai=1541 aj=546 ratio=2.82
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test50.jpg (240x520) ===
+  no gate
+  overlay  → out_test50.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test51.jpg (240x520) ===
+  no gate
+  overlay  → out_test51.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test52.jpg (240x520) ===
+  no gate
+  overlay  → out_test52.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test53.jpg (240x520) ===
+  no gate
+  overlay  → out_test53.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test54.jpg (240x520) ===
+  no gate
+  overlay  → out_test54.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test55.jpg (240x520) ===
+  no gate
+  overlay  → out_test55.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test56.jpg (240x520) ===
+  no gate
+  overlay  → out_test56.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test57.jpg (240x520) ===
+  no gate
+  overlay  → out_test57.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test58.jpg (240x520) ===
+  no gate
+  overlay  → out_test58.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test59.jpg (240x520) ===
+  no gate
+  overlay  → out_test59.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test60.jpg (240x520) ===
+  no gate
+  overlay  → out_test60.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test61.jpg (240x520) ===
+  no gate
+  overlay  → out_test61.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test62.jpg (240x520) ===
+  no gate
+  overlay  → out_test62.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test63.jpg (240x520) ===
+  no gate
+  overlay  → out_test63.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test64.jpg (240x520) ===
+  no gate
+  overlay  → out_test64.png
+[REJECT] ratio too big (bottom bigger): ai=527 aj=80668 ratio=153.07
+[REJECT] ratio too big (bottom bigger): ai=880 aj=80668 ratio=91.67
+[REJECT] sep too small: sep=54 (10.38% height)
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test65.jpg (240x520) ===
+  no gate
+  overlay  → out_test65.png
+[SPLIT] blob 0: peak1=row105(42) peak2=row255(16) valley=row132(0)
+[SPLIT] top: w=63 h=77 px=771 cx=169 cy=93
+[SPLIT] bot: w=169 h=371 px=847 cx=130 cy=318
+[REJECT] ratio too big (top bigger): ai=4851 aj=1736 ratio=2.79
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test66.jpg (240x520) ===
+  no gate
+  overlay  → out_test66.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test67.jpg (240x520) ===
+  no gate
+  overlay  → out_test67.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test68.jpg (240x520) ===
+  no gate
+  overlay  → out_test68.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test69.jpg (240x520) ===
+  no gate
+  overlay  → out_test69.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test70.jpg (240x520) ===
+  no gate
+  overlay  → out_test70.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test71.jpg (240x520) ===
+  no gate
+  overlay  → out_test71.png
+[SPLIT] blob 0: peak1=row101(40) peak2=row289(22) valley=row115(0)
+[SPLIT] top: w=132 h=55 px=654 cx=92 cy=87
+[SPLIT] bot: w=188 h=402 px=1373 cx=94 cy=317
+[REJECT] ratio too big (top bigger): ai=7260 aj=1008 ratio=7.20
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test72.jpg (240x520) ===
+  no gate
+  overlay  → out_test72.png
+[SPLIT] blob 7: peak1=row28(49) peak2=row480(18) valley=row41(0)
+[SPLIT] top: w=77 h=41 px=730 cx=99 cy=20
+[SPLIT] bot: w=166 h=465 px=1673 cx=95 cy=274
+[REJECT] ratio too big (top bigger): ai=3157 aj=1122 ratio=2.81
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test73.jpg (240x520) ===
+  no gate
+  overlay  → out_test73.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test74.jpg (240x520) ===
+  no gate
+  overlay  → out_test74.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test75.jpg (240x520) ===
+  no gate
+  overlay  → out_test75.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test76.jpg (240x520) ===
+  no gate
+  overlay  → out_test76.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test77.jpg (240x520) ===
+  no gate
+  overlay  → out_test77.png
+[REJECT] ratio too big (bottom bigger): ai=1026 aj=85432 ratio=83.27
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test78.jpg (240x520) ===
+  no gate
+  overlay  → out_test78.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test79.jpg (240x520) ===
+  no gate
+  overlay  → out_test79.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test80.jpg (240x520) ===
+  no gate
+  overlay  → out_test80.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test81.jpg (240x520) ===
+  no gate
+  overlay  → out_test81.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test82.jpg (240x520) ===
+  no gate
+  overlay  → out_test82.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test83.jpg (240x520) ===
+  no gate
+  overlay  → out_test83.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test84.jpg (240x520) ===
+  no gate
+  overlay  → out_test84.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test85.jpg (240x520) ===
+  no gate
+  overlay  → out_test85.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test86.jpg (240x520) ===
+  no gate
+  overlay  → out_test86.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test87.jpg (240x520) ===
+  no gate
+  overlay  → out_test87.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test88.jpg (240x520) ===
+  no gate
+  overlay  → out_test88.png
+[REJECT] ratio too big (bottom bigger): ai=770 aj=1554 ratio=2.02
+[REJECT] ratio too big (bottom bigger): ai=770 aj=1554 ratio=2.02
+[REJECT] blob i too wide: w=74 h=21 ratio=3.52
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test89.jpg (240x520) ===
+  no gate
+  overlay  → out_test89.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test90.jpg (240x520) ===
+  no gate
+  overlay  → out_test90.png
+[REJECT] ratio too big (bottom bigger): ai=572 aj=1320 ratio=2.31
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test91.jpg (240x520) ===
+  no gate
+  overlay  → out_test91.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test92.jpg (240x520) ===
+  no gate
+  overlay  → out_test92.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test93.jpg (240x520) ===
+  no gate
+  overlay  → out_test93.png
+[REJECT] ratio too big (bottom bigger): ai=986 aj=83800 ratio=84.99
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test94.jpg (240x520) ===
+  no gate
+  overlay  → out_test94.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test95.jpg (240x520) ===
+  no gate
+  overlay  → out_test95.png
+[CONTOUR] Less than 2 blobs: 0
+=== /home/duarte/Desktop/20260320-100310/test96.jpg (240x520) ===
+  no gate
+  overlay  → out_test96.png
+[CONTOUR] Less than 2 blobs: 1
+=== /home/duarte/Desktop/20260320-100310/test97.jpg (240x520) ===
+  no gate
+  overlay  → out_test97.png
+[REJECT] sep too small: sep=37 (7.12% height)
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test98.jpg (240x520) ===
+  no gate
+  overlay  → out_test98.png
+[REJECT] blob i too wide: w=73 h=19 ratio=3.84
+[CONTOUR] No valid pair found
+=== /home/duarte/Desktop/20260320-100310/test99.jpg (240x520) ===
+  no gate
+  overlay  → out_test99.png
+
+=== Summary: 0 / 135 frames with gate detected ===

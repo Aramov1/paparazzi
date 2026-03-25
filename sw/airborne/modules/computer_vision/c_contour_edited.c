@@ -64,7 +64,7 @@ _Static_assert(MAX_IMG_HEIGHT > 0, "MAX_IMG_HEIGHT must be positive");
 /* -------------------------------------------------------------------------
  * Blob limits
  * ------------------------------------------------------------------------- */
-#define MAX_BLOBS     64
+#define MAX_BLOBS     128  /* raised from 64: noise fills 64 slots in practice; need room for split bots */
 #define MIN_BLOB_AREA 300   /* minimum pixel_count (not bbox area) — [F4] */
 
 /* -------------------------------------------------------------------------
@@ -171,6 +171,7 @@ typedef struct {
   int min_y, max_y;
   int pixel_count;
   int active;
+  int from_split;           /* 1 if produced by the blob splitter */
   int w, h, area, cx, cy;  /* precomputed after blob finding */
 } Blob;
 
@@ -250,6 +251,7 @@ static int find_blobs(const uint8_t *mask, int width, int height, Blob *blobs)
         blobs[label].max_y       = row;
         blobs[label].pixel_count = 0;
         blobs[label].active      = 1;
+        blobs[label].from_split  = 0;
         uf_parent[label]         = (int16_t)label;
       }
 
@@ -402,7 +404,7 @@ void find_contour(char *img, int width, int height)
    * horizontal waist, it is likely two merged markers. Split at the row
    * with minimum pixel count if that row is below 30% of the densest row.
    * ----------------------------------------------------------------- */
-  static int   new_active[MAX_BLOBS];
+  static int   new_active[MAX_BLOBS * 2];  /* each blob can produce 2 sub-blobs after split */
   static int   row_counts[MAX_IMG_HEIGHT];
   int new_na = 0;
 
@@ -440,8 +442,23 @@ void find_contour(char *img, int width, int height)
       continue;
     }
 
+    /* center-biased split: among all rows with min count, pick the one
+     * closest to the blob center so the split lands between the two markers
+     * rather than just below the top marker (where ties are broken by first
+     * occurrence in the top-down scan). */
+    {
+      int center_row = blobs[b].min_y + bh / 2;
+      for (int r = blobs[b].min_y; r <= blobs[b].max_y; r++) {
+        if (row_counts[r - blobs[b].min_y] == min_count) {
+          int d_new = r - center_row; if (d_new < 0) d_new = -d_new;
+          int d_cur = split_row - center_row; if (d_cur < 0) d_cur = -d_cur;
+          if (d_new < d_cur) split_row = r;
+        }
+      }
+    }
+
     /* compute top sub-blob by re-scanning rows [min_y .. split_row-1] */
-    Blob top = {0}; top.active = 1;
+    Blob top = {0}; top.active = 1; top.from_split = 1;
     top.min_x = blobs[b].max_x; top.max_x = blobs[b].min_x;
     top.min_y = blobs[b].min_y; top.max_y = split_row - 1;
     for (int r = top.min_y; r <= top.max_y; r++) {
@@ -454,7 +471,7 @@ void find_contour(char *img, int width, int height)
     }
 
     /* compute bottom sub-blob by re-scanning rows [split_row+1 .. max_y] */
-    Blob bot = {0}; bot.active = 1;
+    Blob bot = {0}; bot.active = 1; bot.from_split = 1;
     bot.min_x = blobs[b].max_x; bot.max_x = blobs[b].min_x;
     bot.min_y = split_row + 1; bot.max_y = blobs[b].max_y;
     for (int r = bot.min_y; r <= bot.max_y; r++) {
@@ -469,13 +486,13 @@ void find_contour(char *img, int width, int height)
     /* finalise metrics for each sub-blob */
     top.w = top.max_x - top.min_x + 1;
     top.h = top.max_y - top.min_y + 1;
-    top.area = top.w * top.h;
+    top.area = top.pixel_count;  /* bbox w*h is inflated by side strips; use actual filled pixels */
     top.cx = top.min_x + top.w / 2;
     top.cy = top.min_y + top.h / 2;
 
     bot.w = bot.max_x - bot.min_x + 1;
     bot.h = bot.max_y - bot.min_y + 1;
-    bot.area = bot.w * bot.h;
+    bot.area = bot.pixel_count;  /* same reason */
     bot.cx = bot.min_x + bot.w / 2;
     bot.cy = bot.min_y + bot.h / 2;
 
@@ -624,44 +641,50 @@ void find_contour(char *img, int width, int height)
         continue;
       }
 
-      /* --- Aspect ratio --- */
-      if (wi64 * 2 < hi64 * 3) {
-        printf("[REJECT] blob i too tall: w=%d h=%d ratio=%.2f\n",
-              wi, hi, (float)wi/hi);
-        continue;
-      }
-
-      if (wj64 * 2 < hj64 * 3) {
-        printf("[REJECT] blob j too tall: w=%d h=%d ratio=%.2f\n",
-              wj, hj, (float)wj/hj);
-        continue;
-      }
-
-      if (wi64 * 2 > hi64 * 7) {
-        printf("[REJECT] blob i too wide: w=%d h=%d ratio=%.2f\n",
-              wi, hi, (float)wi/hi);
-        continue;
-      }
-
-      if (wj64 * 2 > hj64 * 7) {
-        printf("[REJECT] blob j too wide: w=%d h=%d ratio=%.2f\n",
-              wj, hj, (float)wj/hj);
-        continue;
-      }
-
-      /* --- Cross aspect consistency --- */
-      int64_t asp_num = wi64 * hj64;
-      int64_t asp_den = wj64 * hi64;
-
-      if (asp_num > asp_den) {
-        if (asp_num * 5 > asp_den * 8) {
-          printf("[REJECT] aspect mismatch (case 1)\n");
+      /* --- Aspect ratio ---
+       * Split sub-blobs span the full gate height (including side strips),
+       * making their bounding box appear tall and narrow even though the
+       * actual marker is a wide horizontal bar.  Skip these checks for any
+       * blob produced by the splitter; all other size/ratio guards still apply. */
+      if (!blobs[bi].from_split && !blobs[bj].from_split) {
+        if (wi64 * 2 < hi64 * 3) {
+          printf("[REJECT] blob i too tall: w=%d h=%d ratio=%.2f\n",
+                wi, hi, (float)wi/hi);
           continue;
         }
-      } else {
-        if (asp_den * 5 > asp_num * 8) {
-          printf("[REJECT] aspect mismatch (case 2)\n");
+
+        if (wj64 * 2 < hj64 * 3) {
+          printf("[REJECT] blob j too tall: w=%d h=%d ratio=%.2f\n",
+                wj, hj, (float)wj/hj);
           continue;
+        }
+
+        if (wi64 * 2 > hi64 * 7) {
+          printf("[REJECT] blob i too wide: w=%d h=%d ratio=%.2f\n",
+                wi, hi, (float)wi/hi);
+          continue;
+        }
+
+        if (wj64 * 2 > hj64 * 7) {
+          printf("[REJECT] blob j too wide: w=%d h=%d ratio=%.2f\n",
+                wj, hj, (float)wj/hj);
+          continue;
+        }
+
+        /* --- Cross aspect consistency --- */
+        int64_t asp_num = wi64 * hj64;
+        int64_t asp_den = wj64 * hi64;
+
+        if (asp_num > asp_den) {
+          if (asp_num * 5 > asp_den * 8) {
+            printf("[REJECT] aspect mismatch (case 1)\n");
+            continue;
+          }
+        } else {
+          if (asp_den * 5 > asp_num * 8) {
+            printf("[REJECT] aspect mismatch (case 2)\n");
+            continue;
+          }
         }
       }
 
