@@ -35,12 +35,12 @@
 extern pthread_mutex_t edge_detection_mutex;
 
 #ifndef EDGE_THRESHOLD
-#define EDGE_THRESHOLD 30
+#define EDGE_THRESHOLD 40
 #endif
 int edge_thresh = EDGE_THRESHOLD;
 
 #ifndef GREEN_THRESH_VALUE
-#define GREEN_THRESH_VALUE 160
+#define GREEN_THRESH_VALUE 165
 #endif
 int green_thresh_value = GREEN_THRESH_VALUE;
 
@@ -104,8 +104,8 @@ int edge_detection_run(char *img, int width, int height)
       uint8_t u_val = buf[base + (c & ~1) * 2];
       uint8_t v_val = buf[base + (c & ~1) * 2 + 2];
 
-      if (y_val > 30 && y_val < (uint8_t)green_thresh_value &&
-          u_val < 115 && v_val < 120) {
+      if (y_val > 100 && y_val < (uint8_t)green_thresh_value &&
+          u_val < 122 && v_val < 158) {
         if (r < horizonRow) horizonRow = r;
         if (c < leftBound)  leftBound  = c;
         if (c > rightBound) rightBound = c;
@@ -217,7 +217,7 @@ int edge_detection_run(char *img, int width, int height)
         if (!in_mask) {
           int uv = r * width * 2 + (c & ~1) * 2;
           uint8_t y = buf[r * width * 2 + c * 2 + 1], u = buf[uv], v = buf[uv + 2];
-          in_mask = (y > 30 && y < (uint8_t)green_thresh_value && u < 115 && v < 120);
+          in_mask = (y > 100 && y < (uint8_t)green_thresh_value && u < 122 && v < 158);
         }
         if (!in_mask) continue;
       }

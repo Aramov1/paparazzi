@@ -13,9 +13,6 @@
       <dl_setting var="oa_use_floor" min="0" step="1" max="1"
                   module="obstacle_avoider" shortname="use_floor"
                   values="Off|On"/>
-      <dl_setting var="oa_use_tree" min="0" step="1" max="1"
-                  module="obstacle_avoider" shortname="use_tree"
-                  values="Off|On"/>
 
       <!-- Tuning thresholds -->
       <dl_setting var="OA_WARNING_TTC" min="1.0" step="0.5" max="15.0"

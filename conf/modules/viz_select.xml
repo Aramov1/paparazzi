@@ -22,6 +22,7 @@
     <file name="viz_select.h"/>
   </header>
   <makefile target="ap|nps">
+    <define name="USE_VIZ_SELECT"/>
     <file name="viz_select.c"/>
   </makefile>
 </module>

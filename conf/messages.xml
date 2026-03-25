@@ -2418,7 +2418,6 @@
       <field name="floor_left"   type="int32"              >floor area left</field>
       <field name="floor_center" type="int32"              >floor area center</field>
       <field name="floor_right"  type="int32"              >floor area right</field>
-      <field name="contour_dy"   type="float"              >tree contour lateral offset</field>
       <field name="turn_vote"    type="int32"              >combined turn direction vote (+right -left)</field>
       <field name="obstacle"     type="uint8"              >1=obstacle detected 0=clear</field>
       <field name="nav_state"    type="uint8"              >navigation state: 0=SAFE 1=OBS_FOUND 2=SEARCH 3=REJOIN 4=OOB</field>
