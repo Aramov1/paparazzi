@@ -338,10 +338,24 @@ void waypoint_navigation_periodic(void)
       // gate_nav.c exclusively controls nav.heading, WP_GOAL, WP_TRAJECTORY.
       // waypoint_navigation only monitors the obstacle safety exit condition.
       // Normal exit (gate_tracking == 0) is handled at the top of this function.
+      static int counter = 0;
+      static int started = 0;
+
       if (obstacle_detected) {
-        gate_navigator_abort();  // force gate_nav to passive SEARCH immediately
+        if(!started){
+          started = 1;
+          counter = 0;
+        }
+
+        counter++;
+
+        if(counter >= 180){
+                  gate_navigator_abort();  // force gate_nav to passive SEARCH immediately
         navigation_state = OBSTACLE_FOUND;
         printf("[WAY_NAV] GATE_TRACKING -> OBSTACLE_FOUND (obstacle alarm)\n");
+        }
+
+
       }
       break;
     }
@@ -474,7 +488,7 @@ float clampf(float v, float lo, float hi)
 // select which direction to turn depending on distance from edge
 uint8_t chooseAvoidanceHeadingIncrement(void)
 {
-  float selected_increment = 0.f;
+  /*float selected_increment = 0.f;
 
   if (chooseEdgeAwareIncrement(&selected_increment)) {
     heading_increment = selected_increment;
@@ -493,7 +507,9 @@ uint8_t chooseAvoidanceHeadingIncrement(void)
     heading_increment = fabsf(heading_increment);
   } else {
     heading_increment = -fabsf(heading_increment);
-  }
+  }*/
+
+  heading_increment = copysignf(fabsf(heading_increment), sensor_turn_vote);
 
   VERBOSE_PRINT("Turn closest to PATH with increment: %f\n", heading_increment);
   return false;

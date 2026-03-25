@@ -1,0 +1,231 @@
+ Video Thread Performance Optimization Plan             
+
+ Context
+
+ The Bebop MAV exercise video thread runs multiple computer vision pipelines
+ synchronously on every camera frame at 20 FPS (240×520 px YUV422). The thread
+ is starved because all callbacks block the capture loop: the next frame cannot
+  be acquired until all processing on the current frame finishes. Profiling
+ logs written to disk (fflush per frame) compound the problem with blocking
+ I/O. The result is that the effective vision throughput drops well below 20
+ FPS and the entire autopilot is starved of fresh sensor data.
+
+ ---
+ Profound Analysis of Bottlenecks
+
+ 1. CRITICAL — fflush() Called on Every Frame (edge_detection.cpp:276)
+
+ fflush(log_file);   // ← blocking syscall, ~1-10ms, every single frame
+ fflush forces an OS write-back to disk on the Bebop's eMMC. At 20 FPS this is
+ 20 forced disk flushes per second. This alone can add 10–200 ms of I/O latency
+  per second, directly throttling the video thread.
+
+ 2. CRITICAL — Edge Detection Runs Synchronously at Full Camera FPS
+
+ cv_add_to_device(..., EDGE_DETECTION_FPS=0, ...) registers the full Canny
+ pipeline (6 steps, 5 full-frame buffers) to run synchronously on every frame.
+ The video thread cannot dequeue the next V4L2 buffer until all processing
+ finishes. Steps executed per-frame:
+ - Pass 1: Horizontal Gaussian blur over all 520×240 = 124,800 pixels (every
+ row, even rows above the floor horizon)
+ - Pass 2: Vertical Gaussian blur (bounded by floor region, better)
+ - Pass 3: Sobel gradient over active region
+ - Pass 4: NMS + double threshold
+ - Pass 5: Hysteresis
+ - Pass 6: Edge count + visualization write-back
+
+ 3. HIGH — Optical Flow Also Runs Synchronously at Full Camera FPS
+
+ cv_add_to_device(..., OPTICFLOW_FPS=0, ...) runs FAST9 corner detection +
+ Lucas-Kanade tracking (25 corners, 10×10 window, 10 iterations) before edge
+ detection on every frame. These are chained serially in the video thread.
+
+ 4. HIGH — malloc/memcpy/free on Every obstacle_avoider_run() at 20 Hz
+ (obstacle_avoider.c:107-111)
+
+ local_vectors = malloc(sizeof(struct flow_t) *
+ local_result.flow_vector_count);
+ memcpy(local_vectors, ...);
+ // ... processing ...
+ free(local_vectors);
+ Dynamic heap allocation in a hard-realtime loop causes heap fragmentation,
+ non-deterministic latency spikes, and unnecessary cache pressure.
+
+ 5. MODERATE — Horizontal Blur Processes All Rows Including Above the Horizon
+ (edge_detection.cpp:95-124)
+
+ for (int r = 0; r < height; r++) { ... hblur ... }  // ALL rows
+ The horizon row (row_start) computed from green floor detection is typically
+ in the upper 30–50% of the image. All Sobel/NMS/counting steps are bounded by
+ row_start, so rows 0..(row_start-1) in hblur are computed but never used.
+
+ 6. MODERATE — memset Zeros Full Buffer Including Above Horizon
+ (edge_detection.cpp:198)
+
+ memset(edge_buf, 0, width * height);  // zeros 124,800 bytes including unused
+ region
+ Can be scoped to start at row_start.
+
+ 7. LOW — Redundant Mask Check Inside NMS Loop (edge_detection.cpp:215-222)
+
+ int in_mask = (c >= lb && c <= rb);  // ← always true: loop bounds are already
+  c=lb..rb
+ if (!in_mask) { ... }
+ The condition c >= lb && c <= rb is a tautology inside the loop. The fallback
+ branch (re-reading YUV to re-check green) is dead code.
+
+ 8. LOW — clock_gettime Called Twice per Frame Even in Production
+ (edge_detection.cpp:77,269)
+
+ Syscall overhead. Fine for debugging but adds up at 20 FPS.
+
+ ---
+ Revised Implementation Plan
+
+ Fix 1 — Remove Per-Frame fflush (edge_detection.cpp)
+
+ File: sw/airborne/modules/computer_vision/edge_detection.cpp
+
+ Replace fflush(log_file) every frame with a frame counter that only flushes
+ every 30 frames (~1.5 s):
+ static int flush_counter = 0;
+ if (++flush_counter >= 30) { fflush(log_file); flush_counter = 0; }
+
+ Fix 2 — Convert Edge Detection to Async (cv_edge_detection.c)
+
+ File: sw/airborne/modules/computer_vision/cv_edge_detection.c
+
+ Change registration from synchronous to asynchronous:
+ // Before:
+ cv_add_to_device(&EDGE_DETECTION_CAMERA, edge_detection_func,
+ EDGE_DETECTION_FPS, 0);
+
+ // After:
+ cv_add_to_device_async(&EDGE_DETECTION_CAMERA, edge_detection_func,
+ EDGE_DETECTION_NICE_LEVEL, EDGE_DETECTION_FPS, 0);
+ Add EDGE_DETECTION_NICE_LEVEL define (suggest 10) to cv_edge_detection.xml.
+ The async framework already handles frame-dropping and mutex-protected
+ hand-off — no other changes needed.
+
+ ▎ Effect: The video thread no longer blocks during the ~5–15 ms Canny
+ pipeline. The next V4L2 frame is dequeued immediately after optical flow
+ finishes. Edge results are delivered 1 frame late, which is acceptable at 20
+ FPS for obstacle avoidance.
+
+ Fix 3 — Pre-Allocate Flow Vector Buffer in obstacle_avoider
+ (obstacle_avoider.c)
+
+ File: sw/airborne/modules/obstacle_avoider/obstacle_avoider.c
+
+ Replace per-call malloc/free with a static fixed-size buffer:
+ // Add at file scope:
+ #define OA_MAX_FLOW_VECTORS 25  // matches OPTICFLOW_MAX_TRACK_CORNERS
+ static struct flow_t oa_flow_buf[OA_MAX_FLOW_VECTORS];
+
+ // In obstacle_avoider_run(), replace malloc/memcpy/free block:
+ struct flow_t *local_vectors = NULL;
+ int vec_count = 0;
+ pthread_mutex_lock(&opticflow_mutex);
+ struct opticflow_result_t local_result = opticflow_result[0];
+ if (local_result.flow_vectors != NULL && local_result.flow_vector_count > 0) {
+   vec_count = local_result.flow_vector_count;
+   if (vec_count > OA_MAX_FLOW_VECTORS) vec_count = OA_MAX_FLOW_VECTORS;
+   memcpy(oa_flow_buf, local_result.flow_vectors, sizeof(struct flow_t) *
+ vec_count);
+   local_vectors = oa_flow_buf;
+ }
+ pthread_mutex_unlock(&opticflow_mutex);
+ // Remove the free() at the bottom
+
+ Fix 4 — Skip Horizontal Blur Above the Horizon (edge_detection.cpp)
+
+ File: sw/airborne/modules/computer_vision/edge_detection.cpp
+
+ The horizon row is not known until after the green detection scan. Since both
+ are in the same first pass, restructure: keep the fused loop as-is but start
+ the blur accumulation at the detected horizonRow in a second, separate pass.
+ Alternatively, do two passes: one fast green-detection-only scan (no blur
+ computation), then start hblur from horizonRow. This halves the blur work when
+  the floor occupies >50% of the frame height.
+
+ Change:
+ for (int r = 0; r < height; r++) {   // currently all rows
+ To a two-pass approach:
+ - Pass A (green scan only, no blur): iterate all rows cheaply to find
+ horizonRow, leftBound, rightBound
+ - Pass B (blur): iterate row_start..height-1 only
+
+ Fix 5 — Scope memset to Active Region (edge_detection.cpp:198)
+
+ // Before:
+ memset(edge_buf, 0, width * height);
+
+ // After:
+ if (row_start > 0) memset(edge_buf, 0, row_start * width);  // only clear rows
+  above horizon (optional)
+ memset(edge_buf + row_start * width, 0, (height - row_start) * width);
+ Or simply zero the full buffer before the floor-detection pass runs (once
+ horizonRow is known), keeping code simple.
+
+ Fix 6 — Remove Dead Mask Check in NMS (edge_detection.cpp:215-222)
+
+ Delete lines 215–222 entirely. The loop already iterates c = lb..rb, so the
+ green re-check is unreachable.
+
+ Fix 7 — Gate Timing Calls Behind Debug Flag (edge_detection.cpp)
+
+ Wrap clock_gettime calls and the fprintf/fflush block behind #ifdef
+ EDGE_DETECTION_TIMING or disable entirely unless VERBOSE_PRINT is active:
+ #ifdef EDGE_DETECTION_TIMING
+   clock_gettime(CLOCK_MONOTONIC, &t0);
+   // ... processing ...
+   clock_gettime(CLOCK_MONOTONIC, &t1);
+   // log
+ #endif
+
+ ---
+ Critical Files to Modify
+
+ ┌─────────────────────────────────────────────────┬───────────────────────┐
+ │                      File                       │        Change         │
+ ├─────────────────────────────────────────────────┼───────────────────────┤
+ │ sw/airborne/modules/computer_vision/edge_detect │ Fix 1, 4, 5, 6, 7     │
+ │ ion.cpp                                         │                       │
+ ├─────────────────────────────────────────────────┼───────────────────────┤
+ │ sw/airborne/modules/computer_vision/cv_edge_det │ Fix 2 (async          │
+ │ ection.c                                        │ registration)         │
+ ├─────────────────────────────────────────────────┼───────────────────────┤
+ │ sw/airborne/modules/obstacle_avoider/obstacle_a │ Fix 3 (static buffer) │
+ │ voider.c                                        │                       │
+ ├─────────────────────────────────────────────────┼───────────────────────┤
+ │ conf/modules/cv_edge_detection.xml              │ Add EDGE_DETECTION_NI │
+ │                                                 │ CE_LEVEL define       │
+ └─────────────────────────────────────────────────┴───────────────────────┘
+
+ ---
+ Priority Order (implement in this sequence)
+
+ 1. Fix 1 — Remove fflush per frame → zero-risk, 1-line change, immediate I/O
+ relief
+ 2. Fix 2 — Async edge detection → frees the video thread, highest throughput
+ gain
+ 3. Fix 3 — Static flow buffer → eliminates heap allocation in realtime loop
+ 4. Fix 6 — Remove dead NMS code → code quality + minor speedup
+ 5. Fix 4 — Two-pass blur → reduces ~40-50% of horizontal blur work
+ 6. Fix 5 — Scope memset → minor, simple
+ 7. Fix 7 — Gate timing behind flag → cleanliness
+
+ ---
+ Verification
+
+ 1. Timing log: With Fix 1 applied, check edges.log still updates (every 30
+ frames). Verify no stale data.
+ 2. Video thread FPS: In GCS telemetry, watch OPTIC_FLOW_EST.fps. Should
+ recover to ~18-20 FPS after Fixes 1+2.
+ 3. Obstacle avoidance behavior: OA_STATUS telemetry should continue publishing
+  at 20 Hz with correct edge/floor values after async conversion (1-frame lag
+ is acceptable).
+ 4. Memory: Confirm no malloc calls in obstacle_avoider_run via valgrind
+ --tool=massif or by inspecting code.
+ 5. CPU load: top on Bebop SSH should show lower video_thread CPU consumption
+ after Fixes 1-3.
