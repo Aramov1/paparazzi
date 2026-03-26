@@ -67,6 +67,9 @@ int floor_area_left   = 0;
 int floor_area_center = 0;
 int floor_area_right  = 0;
 
+int flush_counter = 0;
+
+
 static FILE *log_file = NULL;
 
 
@@ -74,7 +77,7 @@ int edge_detection_run(char *img, int width, int height)
 {
 #if EDGE_DETECTION_GRAYSCALE
   struct timespec t0, t1;
-  clock_gettime(CLOCK_MONOTONIC, &t0);
+  //clock_gettime(CLOCK_MONOTONIC, &t0);
 
   if (!log_file) {
     log_file = fopen("/data/ftp/internal_000/edges.log", "a");
@@ -187,7 +190,7 @@ int edge_detection_run(char *img, int width, int height)
     mag_buf[r * width]             = 0;
     mag_buf[r * width + width - 1] = 0;
   }
-  memset(mag_buf,                    0, width);
+  if (row_start > 0) memset(mag_buf,                    0, width);
   memset(mag_buf + (height-1)*width, 0, width);
 
   // ── Step 4+5 FUSED: NMS + double threshold ────────────────────────────────
@@ -266,14 +269,14 @@ int edge_detection_run(char *img, int width, int height)
   edge_count_total  = local_total;
   pthread_mutex_unlock(&edge_detection_mutex);
 
-  clock_gettime(CLOCK_MONOTONIC, &t1);
+  //clock_gettime(CLOCK_MONOTONIC, &t1);
   long ms = (t1.tv_sec - t0.tv_sec) * 1000 + (t1.tv_nsec - t0.tv_nsec) / 1000000;
 
   if (log_file) {
     fprintf(log_file, "t=%ld.%03ld | left: %d, center: %d, right: %d, total: %d | time: %ldms\n",
             t1.tv_sec, t1.tv_nsec / 1000000,
             local_left, local_center, local_right, local_total, ms);
-    fflush(log_file);
+    if (++flush_counter >= 30) { fflush(log_file); flush_counter = 0; }
   }
 
 #endif // EDGE_DETECTION_GRAYSCALE

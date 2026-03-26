@@ -42,6 +42,9 @@ float OA_MIN_REGION_DIFF         = 0.05f;
 int   OA_EDGE_OBSTACLE_THRESHOLD = 6000;
 int   OA_FLOOR_MIN_AREA          = 2000;
 
+#define OA_MAX_FLOW_VECTORS 25  // matches OPTICFLOW_MAX_TRACK_CORNERS
+static struct flow_t oa_flow_buf[OA_MAX_FLOW_VECTORS];
+
 // Per-sensor enable flags — defaults can be overridden from the airframe XML:
 //   <define name="OA_USE_OPTICFLOW" value="0"/>
 #ifndef OA_USE_OPTICFLOW
@@ -97,20 +100,34 @@ void obstacle_avoider_init(void)
 
 void obstacle_avoider_run(void)
 {
-  if (!autopilot_in_flight()) return;
+  // if (!autopilot_in_flight()) return;
 
-  // --- Read opticflow (thread-safe copy) ---
+  struct flow_t *local_vectors = NULL;
+  int vec_count = 0;
   pthread_mutex_lock(&opticflow_mutex);
   struct opticflow_result_t local_result = opticflow_result[0];
-  struct flow_t *local_vectors = NULL;
   if (local_result.flow_vectors != NULL && local_result.flow_vector_count > 0) {
-    local_vectors = malloc(sizeof(struct flow_t) * local_result.flow_vector_count);
-    if (local_vectors) {
-      memcpy(local_vectors, local_result.flow_vectors,
-             sizeof(struct flow_t) * local_result.flow_vector_count);
-    }
+  vec_count = local_result.flow_vector_count;
+  if (vec_count > OA_MAX_FLOW_VECTORS) vec_count = OA_MAX_FLOW_VECTORS;
+  memcpy(oa_flow_buf, local_result.flow_vectors, sizeof(struct flow_t) *
+  vec_count);
+    local_vectors = oa_flow_buf;
   }
   pthread_mutex_unlock(&opticflow_mutex);
+
+  // // --- Read opticflow (thread-safe copy) ---
+  // pthread_mutex_lock(&opticflow_mutex);
+  // struct opticflow_result_t local_result = opticflow_result[0];
+  // struct flow_t *local_vectors = NULL;
+  // if (local_result.flow_vectors != NULL && local_result.flow_vector_count > 0) {
+  //   // local_vectors = malloc(sizeof(struct flow_t) * local_result.flow_vector_count);
+  //   vec_count = local_result.flow_vector_count;
+  //   if (local_vectors) {
+  //     memcpy(local_vectors, local_result.flow_vectors,
+  //            sizeof(struct flow_t) * local_result.flow_vector_count);
+  //   }
+  // }
+  // pthread_mutex_unlock(&opticflow_mutex);
 
   // --- Update raw opticflow telemetry unconditionally ---
   oa_div_size    = local_result.div_size;
@@ -206,7 +223,7 @@ void obstacle_avoider_run(void)
   int16_t direction = (int16_t)turn_vote;
   AbiSendMsgVISUAL_DETECTION(OA_VISUAL_DETECTION_SENDER_ID, direction, 0, 0, 0, quality, 0);
 
-  if (local_vectors) {
-    free(local_vectors);
-  }
+  // if (local_vectors) {
+  //   free(local_vectors);
+  // }
 }
