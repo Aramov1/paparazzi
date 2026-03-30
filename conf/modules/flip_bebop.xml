@@ -1,0 +1,16 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="flip_bebop">
+    <doc>
+        <description>
+            This is a module to perform a flip.
+        </description>
+    </doc>
+    <header>
+        <file name="guidance_flip.h"/>
+    </header>
+    <init fun="guidance_flip_init()"/>
+    <makefile target="ap|nps">
+        <file name="guidance_flip.c"/>
+    </makefile>
+</module>
