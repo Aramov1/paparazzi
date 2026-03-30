@@ -63,10 +63,11 @@ float heading_increment = 15.f;         // heading angle increment [deg]
 int16_t rejoin_counter = 0;            	// cycles spent in REJOIN_PATH
 uint8_t edge_turn_bias_active = false; 	// when true, keep turning away from geofence edge
 float edge_turn_bias_sign = 1.f;       	// +1 or -1 turn sign bias when edge_turn_bias_active
-uint8_t obstacle_detected = 0;
-int16_t obstacle_free_confidence = 0;
-uint8_t nav_state_is_rejoin_path(void);
-uint8_t orange_detected = 0;
+uint8_t obstacle_detected = 0;          // boolean to indicate obstacle detection from vision
+int16_t obstacle_free_confidence = 0;   // confidence counter for consecutive obstacle-free detections
+uint8_t orange_detected = 0;            // boolean to indicate orange detection from vision
+uint8_t nav_state_is_rejoin_path(void); // function to check if the navigation state is REJOIN_PATH
+
 
 // --- SimpleReactive mode (nav_program_mode == 0) private state ---
 // Mirrors old_logic.c exactly. Uses color_count / sensor_turn_vote from ABI.
@@ -80,7 +81,7 @@ static int16_t sr_confidence        = 0;
 #define WAYPOINT_NAVIGATION_ORANGE_DETECTION_ID ABI_BROADCAST
 #endif
 
-static int16_t sensor_turn_vote = 0;  // turn hint from obstacle sensor fusion
+static int16_t sensor_turn_vote = 0;  // turn hint from obstacle sensor fusion (indicates direction in which it is better to turn)
 
 static abi_event visual_detection_ev;
 static void visual_detection_cb(uint8_t __attribute__((unused)) sender_id,
@@ -223,6 +224,7 @@ void waypoint_navigation_periodic(void)
   }
 
   switch (navigation_state) {
+    // SAFE state: general navigation behavior while checking for obstacles and bounds violations
     case SAFE:
       // set maximum speed of bebop
       NavSetMaxSpeed(safe_max_speed);
@@ -241,14 +243,14 @@ void waypoint_navigation_periodic(void)
         moveWaypointForward(WP_GOAL, 0.3f);
       }
 
-      // check whether obstacle is detected, and update state accordingly
+      // check whether obstacle is detected. If so, change to OBSTACLE_FOUND state
       if (obstacle_detected) {
         navigation_state = OBSTACLE_FOUND;
       }
-
-      //TODO: update goal, path and state logic to allow to follow gates
       break;
 
+    // OBSTACLE_FOUND state: reduce speed to obstacle_max_speed and then choose safe heading.
+    // When the obstacle is no longer detected, switch to REJOIN_PATH 
     case OBSTACLE_FOUND:
       NavSetMaxSpeed(obstacle_max_speed);
       waypoint_move_here_2d(WP_TRAJECTORY);
@@ -260,6 +262,8 @@ void waypoint_navigation_periodic(void)
       navigation_state = SEARCH_FOR_SAFE_HEADING;
       break;
 
+    // SEARCH_FOR_SAFE_HEADING state: turn in place until no obstacle is detected.
+    // Then move forward and check if we can rejoin path or if we are out of bounds.
     case SEARCH_FOR_SAFE_HEADING:
       // Increase heading unill safe heading is found.
       // Once a candidate safe heading appears (confidence > 0), stop turning and keep testing straight ahead.
@@ -285,6 +289,8 @@ void waypoint_navigation_periodic(void)
       }
       break;
 
+    // REJOIN_PATH state: move towards WP_PATH and face it. After certain amount of cycles that let the drone
+    // get closer enough to the path, switch to SAFE
     case REJOIN_PATH: {
       NavSetMaxSpeed(safe_max_speed);
 
@@ -319,6 +325,8 @@ void waypoint_navigation_periodic(void)
       break;
     }
 
+    // OUT_OF_BOUNDS state: turn away and move forward until being back in bounds.
+    // Then switch to SEARCH_FOR_SAFE_HEADING to check for obstacles again
     case OUT_OF_BOUNDS: {
       NavSetMaxSpeed(obstacle_max_speed);
       increase_nav_heading(heading_increment);
@@ -334,6 +342,8 @@ void waypoint_navigation_periodic(void)
       break;
     }
 
+    // GATE_TRACKING state: when a gate is detected, gate_nav takes over control of heading and waypoints.
+    // The only thing waypoint_navigation does is monitor the obstacle detection to switch to OBSTACLE_FOUND if needed.
     case GATE_TRACKING: {
       // gate_nav.c exclusively controls nav.heading, WP_GOAL, WP_TRAJECTORY.
       // waypoint_navigation only monitors the obstacle safety exit condition.
@@ -352,7 +362,7 @@ void waypoint_navigation_periodic(void)
 }
 
 
-// Increases the NAV heading. Assumes heading is an INT32_ANGLE. It is bound in this function.
+// Function to increase the NAV heading. Assumes heading is an INT32_ANGLE. It is bound in this function.
 uint8_t increase_nav_heading(float incrementDegrees)
 {
   float signed_increment_deg = incrementDegrees;
@@ -376,7 +386,7 @@ uint8_t increase_nav_heading(float incrementDegrees)
 }
 
 
-// Sets waypoint 'waypoint' to the coordinates of 'new_coor'
+// Function to set waypoint 'waypoint' to the coordinates of 'new_coor'
 uint8_t moveWaypoint(uint8_t waypoint, struct EnuCoor_i *new_coor)
 {
   VERBOSE_PRINT("Moving waypoint %d to x:%f y:%f\n", waypoint, POS_FLOAT_OF_BFP(new_coor->x),
@@ -386,7 +396,7 @@ uint8_t moveWaypoint(uint8_t waypoint, struct EnuCoor_i *new_coor)
 }
 
 
-// Calculates coordinates of distance forward and sets waypoint 'waypoint' to those coordinates
+// Function to calculate coordinates of distance forward and set waypoint 'waypoint' to those coordinates
 uint8_t moveWaypointForward(uint8_t waypoint, float distanceMeters)
 {
   struct EnuCoor_i new_coor;
@@ -396,7 +406,7 @@ uint8_t moveWaypointForward(uint8_t waypoint, float distanceMeters)
 }
 
 
-// Calculates coordinates of a distance of 'distanceMeters' forward w.r.t. current position and heading
+// Function to calculate coordinates of a distance of 'distanceMeters' forward w.r.t. current position and heading
 uint8_t calculateForwards(struct EnuCoor_i *new_coor, float distanceMeters)
 {
   float heading = nav.heading;
@@ -407,7 +417,7 @@ uint8_t calculateForwards(struct EnuCoor_i *new_coor, float distanceMeters)
 }
 
 
-// Sets WP_GOAL to the current nominal WP_PATH target.
+// Function to set WP_GOAL to the current nominal WP_PATH target.
 uint8_t setGoalToPathWaypoint(void)
 {
   waypoint_move_xy_i(WP_GOAL, POS_BFP_OF_REAL(WaypointX(WP_PATH)), POS_BFP_OF_REAL(WaypointY(WP_PATH)));
@@ -415,7 +425,7 @@ uint8_t setGoalToPathWaypoint(void)
 }
 
 
-// Compute desired heading toward WP_PATH from current position.
+// Function to compute desired heading toward WP_PATH from current position.
 uint8_t getHeadingToPathWaypoint(float *heading_to_path)
 {
   float dx = WaypointX(WP_PATH) - stateGetPositionEnu_f()->x;
@@ -432,7 +442,7 @@ uint8_t getHeadingToPathWaypoint(float *heading_to_path)
 }
 
 
-// Align heading toward WP_PATH with a slew-rate limit
+// Function to align heading toward WP_PATH with a slew-rate limit
 uint8_t setHeadingToPathWaypointLimited(float max_delta_deg)
 {
   float desired_heading;
@@ -449,7 +459,7 @@ uint8_t setHeadingToPathWaypointLimited(float max_delta_deg)
 }
 
 
-// calcualte difference between two headings
+// Function to calculate difference between two headings
 float angle_diff(float a, float b)
 {
   float d = a - b;
@@ -458,7 +468,7 @@ float angle_diff(float a, float b)
 }
 
 
-// clamp float between two values
+// Function to clamp float between two values
 float clampf(float v, float lo, float hi)
 {
   if (v < lo) {
@@ -471,7 +481,7 @@ float clampf(float v, float lo, float hi)
 }
 
 
-// select which direction to turn depending on distance from edge
+// Function to select which direction to turn depending on distance from edge
 uint8_t chooseAvoidanceHeadingIncrement(void)
 {
   float selected_increment = 0.f;
@@ -500,7 +510,7 @@ uint8_t chooseAvoidanceHeadingIncrement(void)
 }
 
 
-// If close to inner geofence edge, choose turn direction away from that edge.
+// Function to choose turn direction when close to inner geofence edge to get away from it.
 uint8_t chooseEdgeAwareIncrement(float *increment_deg)
 {
   float inward_x, inward_y, edge_dist;
@@ -620,7 +630,7 @@ uint8_t getClosestInnerEdgeInward(float *inward_x, float *inward_y, float *dista
 }
 
 
-// return wether navigation state is REJOIN_PATH
+// Function to check if the navigation state is REJOIN_PATH
 uint8_t nav_state_is_rejoin_path(void) {
   return navigation_state == REJOIN_PATH;
 }
