@@ -1,7 +1,7 @@
 /*
  * Obstacle sensor fusion module.
  *
- * Reads opticflow TTC, edge detection, floor area and tree contour signals.
+ * Reads opticflow TTC, edge detection, and floor area signals.
  * Publishes a VISUAL_DETECTION ABI message consumed by waypoint_navigation.c:
  *
  *   quality  > 0  → obstacle detected
@@ -13,8 +13,6 @@
 #include "modules/core/abi.h"
 #include "modules/computer_vision/cv_edge_detection.h"
 #include "modules/cyberzoo_navigation/waypoint_navigation.h"
-#include "modules/computer_vision/detect_contour.h"
-#include "modules/computer_vision/opencv_contour.h"
 #include "autopilot.h"
 #include "math/pprz_algebra_float.h"
 #include "modules/computer_vision/opticflow/size_divergence.h"
@@ -30,10 +28,6 @@
 #endif
 
 extern pthread_mutex_t opticflow_mutex;
-
-struct contour_estimation contour_estimation;
-extern struct contour_estimation cont_est;
-extern pthread_mutex_t contour_mutex;
 
 extern struct opticflow_result_t opticflow_result[];
 
@@ -59,14 +53,10 @@ int   OA_FLOOR_MIN_AREA          = 2000;
 #ifndef OA_USE_FLOOR
 #define OA_USE_FLOOR 1
 #endif
-#ifndef OA_USE_TREE
-#define OA_USE_TREE 1
-#endif
 
 uint8_t oa_use_opticflow = OA_USE_OPTICFLOW;
 uint8_t oa_use_edge      = OA_USE_EDGE;
 uint8_t oa_use_floor     = OA_USE_FLOOR;
-uint8_t oa_use_tree      = OA_USE_TREE;
 
 // Unique sender ID — waypoint_navigation binds to ABI_BROADCAST so it
 // receives from any sender without extra configuration.
@@ -81,7 +71,6 @@ static float    oa_div_left   = 0.f;
 static float    oa_div_right  = 0.f;
 static float    oa_div_size   = 0.f;
 static uint16_t oa_tracked_cnt = 0;
-static float    oa_contour_dy = 0.f;
 static int32_t  oa_turn_vote  = 0;
 static uint8_t  oa_obstacle   = 0;
 
@@ -94,7 +83,7 @@ static void oa_telem_send(struct transport_tx *trans, struct link_device *dev)
     &oa_div_size, &oa_tracked_cnt,
     &edge_count_left, &edge_count_center, &edge_count_right,
     &floor_area_left, &floor_area_center, &floor_area_right,
-    &oa_contour_dy, &oa_turn_vote, &oa_obstacle,
+    &oa_turn_vote, &oa_obstacle,
     &nav_state_u8, &obstacle_free_confidence);
 }
 #endif
@@ -131,13 +120,6 @@ void obstacle_avoider_run(void)
   } else {
     oa_ttc = 9999.f;
   }
-
-  // --- Read tree/contour detection (thread-safe copy) ---
-  pthread_mutex_lock(&contour_mutex);
-  contour_estimation.contour_d_x = cont_est.contour_d_x;
-  contour_estimation.contour_d_y = cont_est.contour_d_y;
-  contour_estimation.contour_d_z = cont_est.contour_d_z;
-  pthread_mutex_unlock(&contour_mutex);
 
   // --- Read edge/floor counts (thread-safe copy) ---
   int local_edge_left, local_edge_center, local_edge_right;
@@ -215,19 +197,7 @@ void obstacle_avoider_run(void)
   }
   } // oa_use_floor
 
-  // --- Signal 4: Tree/contour ---
-  if (oa_use_tree) {
-  if (contour_estimation.contour_d_x >= 0.0f) {
-    obstacle_detected = true;
-    if (contour_estimation.contour_d_y > 0.0f) turn_vote--;  // tree right → turn left
-    else                                        turn_vote++;
-    VERBOSE_PRINT("CONTOUR obstacle: dy=%.2f vote=%d\n",
-                  contour_estimation.contour_d_y, turn_vote);
-  }
-  } // oa_use_tree
-
   // --- Update telemetry state ---
-  oa_contour_dy = contour_estimation.contour_d_y;
   oa_turn_vote  = (int32_t)turn_vote;
   oa_obstacle   = obstacle_detected ? 1 : 0;
 

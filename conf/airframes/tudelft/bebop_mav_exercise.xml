@@ -48,9 +48,6 @@
       <define name="VIDEO_CAPTURE_CAMERA" value="front_camera"/>
       <define name="VIDEO_CAPTURE_FPS" value="10"/>
     </module>
-    <!-- Debug vizualization -->
-    <module name="viz_select"/>
-
     <!-- Opticflow - front camera -->
     <module name="cv_opticflow">
       <define name="OPTICFLOW_CAMERA" value="front_camera"/>
@@ -60,11 +57,6 @@
       <define name="OPTICFLOW_CORNER_METHOD" value="0"/>
       <define name="OPTICFLOW_DEROTATION_CORRECTION_FACTOR_X" value="0.8"/>
       <define name="OPTICFLOW_DEROTATION_CORRECTION_FACTOR_Y" value="0.85"/>
-    </module>
-
-    <module name="cv_detect_contour">
-      <define name="DETECT_CONTOUR_CAMERA" value="front_camera"/>
-      <define name="DETECT_CONTOUR_FPS" value="1"/>
     </module>
 
     <!-- Gate detection using blue TUDelft patch contours -->

@@ -26,7 +26,11 @@
 extern "C" {
 #endif
 
+#ifdef USE_VIZ_SELECT
 extern uint8_t VIZ_ACTIVE;
+#else
+#define VIZ_ACTIVE 0
+#endif
 
 #define VIZ_NONE     0
 #define VIZ_EDGE     1
