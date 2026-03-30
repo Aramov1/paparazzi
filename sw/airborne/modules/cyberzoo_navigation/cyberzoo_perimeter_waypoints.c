@@ -11,17 +11,19 @@
 #include "state.h"
 #include <math.h>
 
-float cz_perimeter_lookahead = 1.2f;
-float cz_perimeter_corner_radius = 1.f;
+float cz_perimeter_lookahead = 1.2f;          // Lookahead distance along the edge for the waypoint target
+float cz_perimeter_corner_radius = 1.f;       // Distance from corner at which to switch to the next edge (corner cutting)
 
-static uint8_t current_edge;
-static struct FloatVect2 current_dir;
-static bool dir_valid;
-static bool path_hold_active;
-static struct FloatVect2 path_hold_point;
+static uint8_t current_edge;                  // Index of the current edge (0-3)
+static struct FloatVect2 current_dir;         // Unit vector along the current edge direction 
+static bool dir_valid;                        // Whether the current_dir is valid (false if the current edge is too short to determine a direction)
+static bool path_hold_active;                 // Whether we are currently holding a path to the edge after a ray intersection (avoid cutting corners too aggressively)
+static struct FloatVect2 path_hold_point;     // The point on the edge we are holding to after a ray intersection, in absolute coordinates
 
 static inline void get_corner(uint8_t idx, struct FloatVect2 *p);
 
+// Function to find the intersection of a ray from (px, py) in direction (dx, dy) with the edges of the inner geofence.
+// Returns true if an intersection is found, along with the hit point and edge index
 static bool get_ray_edge_intersection(float px, float py, float dx, float dy,
                                       struct FloatVect2 *hit_point, uint8_t *hit_edge)
 {
@@ -69,6 +71,7 @@ static bool get_ray_edge_intersection(float px, float py, float dx, float dy,
   return true;
 }
 
+// Function to find the closest point on the edges of the inner geofence to a given point (px, py)
 static bool get_closest_edge_point(float px, float py, struct FloatVect2 *closest_point, float *closest_dist)
 {
   if (closest_point == NULL || closest_dist == NULL) {
@@ -117,7 +120,7 @@ static bool get_closest_edge_point(float px, float py, struct FloatVect2 *closes
   return true;
 }
 
-// define the position of the four corners of the inner geofence
+// Function to define the position of the four corners of the inner geofence
 static inline void get_corner(uint8_t idx, struct FloatVect2 *p)
 {
   switch (idx & 0x3) {
@@ -140,6 +143,7 @@ static inline void get_corner(uint8_t idx, struct FloatVect2 *p)
   }
 }
 
+// Initializer of the perimeter navigation
 void cyberzoo_perimeter_nav_init(void)
 {
   current_edge = 0;
@@ -151,6 +155,7 @@ void cyberzoo_perimeter_nav_init(void)
   path_hold_point.y = 0.f;
 }
 
+// Function to get whether the current direction along the edge is valid and if so return it in *dir
 bool cyberzoo_perimeter_get_path_direction(struct FloatVect2 *dir)
 {
   if (!dir_valid || dir == NULL) {
@@ -160,6 +165,8 @@ bool cyberzoo_perimeter_get_path_direction(struct FloatVect2 *dir)
   return true;
 }
 
+// Function to project the current position onto the edge of the inner geofence and set a waypoint there,
+// and to hold that path until we are close enough to it (avoid aggressive corner cutting)
 void ProjectPathToEdge(void)
 {
   float heading = nav.heading;
@@ -191,6 +198,7 @@ void ProjectPathToEdge(void)
   waypoint_move_xy_i(WP_PATH, POS_BFP_OF_REAL(hit_point.x), POS_BFP_OF_REAL(hit_point.y));
 }
 
+// Periodic function to update the waypoint target along the edge of the inner geofence and avoid corners
 void cyberzoo_perimeter_nav_periodic(void)
 {
   if (path_hold_active) {
