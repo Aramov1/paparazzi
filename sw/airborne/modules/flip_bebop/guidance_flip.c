@@ -1,31 +1,19 @@
 /*
- * Copyright (C) 2015 Freek van Tienen <freek.v.tienen@gmail.com>
- *               2015 Ewoud Smeur
+ * @file modules/flip_bebop/guidance_flip.c
+ * @author Jose Cunha
+ *  Modification of firmwares/rotorcraft/guidance/guidance_flip.c, tuned to the Parrot Bebop drone. Provides open-loop
+ *  guidance for making a rolling flip. Also includes modifications to be better utilised as a module which can be run
+ *  at the click of a button defined in the flightplan by defining the following block:
  *
- * This file is part of paparazzi.
+ *  <block name="FLIP">
+      <call_once fun="guidance_flip_enter()"/>
+      <while cond="!guidance_flip_finished()"/>
+      <exception cond="guidance_flip_finished()" deroute="Standby"/>
+    </block>
  *
- * paparazzi is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
+ * Required modification to airborne/firmwares/rotorcraft/autopilot_static.c to overwrite autopilot attitude commands
  *
- * paparazzi is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with paparazzi; see the file COPYING.  If not, write to
- * the Free Software Foundation, 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
- */
-
-/**
- * @file firmwares/rotorcraft/guidance/guidance_flip.c
- *
- * Open Loop guidance for making a flip. You need to tune this before using.
- * When entering this mode it saves the previous guidance mode and changes AUTO2 back to
- * the previous mode after finishing the flip.
+ * After finishing flip, it restores the heading that was set prior to the flip, as well as the prior autopilot mode.
  * Use it with caution!
  */
 
@@ -57,20 +45,19 @@
 #define FINAL_THRUST_LEVEL 8600
 #endif
 
-uint32_t flip_counter;
-uint8_t flip_state;
-bool flip_rollout;
-bool flip_running;
-bool flip_finished_flag;
-int32_t heading_save;
-uint8_t autopilot_mode_old;
-struct Int32Vect2 flip_cmd_earth;
+uint32_t flip_counter;            /* Loop counter used to build a fixed-point timer. */
+uint8_t flip_state;               /* State machine index for the flip phases. */
+bool flip_running;                /* True while the flip state machine sends commands. */
+bool flip_finished_flag;          /* True when a flip completes; False when entering flip. */
+int32_t heading_save;             /* Heading snapshot to restore after the flip. */
+uint8_t autopilot_mode_old;       /* Autopilot mode to restore on exit. */
+struct Int32Vect2 flip_cmd_earth; /* Zeroed earth-frame command during recovery. */
 
+// initialise variables
 void guidance_flip_init(void)
 {
   flip_counter = 0;
   flip_state = 0;
-  flip_rollout = false;
   flip_running = false;
   flip_finished_flag = false;
   heading_save = 0;
@@ -79,17 +66,18 @@ void guidance_flip_init(void)
   flip_cmd_earth.y = 0;
 }
 
+// function to start flip (e.g. when FLIP button is pressed in GCS)
 void guidance_flip_enter(void)
 {
   flip_counter = 0;
   flip_state = 0;
-  flip_rollout = false;
   flip_running = true;
   flip_finished_flag = false;
   heading_save = stabilization_attitude_get_heading_i();
   autopilot_mode_old = autopilot_get_mode();
 }
 
+// detect when flip is finised to return to normal flight in flightplan
 bool guidance_flip_finished(void)
 {
   if (flip_finished_flag) {
@@ -99,11 +87,16 @@ bool guidance_flip_finished(void)
   return false;
 }
 
+// detect when flip is active for autopilot_static.c, to select to apply thrust commands generated in this file
 bool guidance_flip_active(void)
 {
   return flip_running;
 }
 
+/* Generate the required thrust commands to perform a flip.
+ * May require tuning depending on the nominal height at which the Bebop flies, so that it does not impact the ground
+ * when flipping.
+ */
 bool guidance_flip_run(void)
 {
   if (!flip_running) {
@@ -116,17 +109,24 @@ bool guidance_flip_run(void)
   int32_t phi;
   static uint32_t timer_save = 0;
 
+  /* Fixed-point timer in 2^12 seconds to compare against BFP_OF_REAL(). */
   timer = (flip_counter++ << 12) / PERIODIC_FREQUENCY;
+  /* Current roll angle in body frame (BFP radians). */
   phi = stateGetNedToBodyEulers_i()->phi;
+
+  /*
+   * Flipping state machine is separated into 5 phases:
+   *  1. Perfom initial upward boost with high thrust level
+   *  2. Apply a strong rolling comman until roll angle reaches a specified threshold (STOP_ROLL_CMD_ANGLE)
+   *  3. Zero roll command at a slightly lower thrust level until Bebop is in an inverted angle window
+   *  4. Command a level attitude with the pre-flip saved heading at a high thrust level
+   *  5. Exit flip state and restore autopilot mode
+   */
 
   switch (flip_state) {
     case 0:
       flip_cmd_earth.x = 0;
       flip_cmd_earth.y = 0;
-      // FIXME maybe better remove the flip guidance
-      //stabilization_attitude_set_earth_cmd_i(&flip_cmd_earth,
-      //                                       heading_save);
-      //stabilization_attitude_run(autopilot_in_flight());
       stabilization.cmd[COMMAND_THRUST] = FIRST_THRUST_LEVEL; // Boost before roll
       timer_save = 0;
 
@@ -141,6 +141,7 @@ bool guidance_flip_run(void)
       stabilization.cmd[COMMAND_YAW]    = 0;
       stabilization.cmd[COMMAND_THRUST] = ROLL_THRUST_LEVEL;
 
+      /* Stop the roll command after crossing the stop angle. */
       if (phi > ANGLE_BFP_OF_REAL(RadOfDeg(STOP_ROLL_CMD_ANGLE))) {
         flip_state++;
       }
@@ -152,6 +153,7 @@ bool guidance_flip_run(void)
       stabilization.cmd[COMMAND_YAW]    = 0;
       stabilization.cmd[COMMAND_THRUST] = COAST_THRUST_LEVEL;
 
+      /* Wait until we pass the inverted window before recovery timing. */
       if (phi > ANGLE_BFP_OF_REAL(RadOfDeg(-110.0)) && phi < ANGLE_BFP_OF_REAL(RadOfDeg(STOP_ROLL_CMD_ANGLE))) {
         timer_save = timer;
         flip_state++;
@@ -166,6 +168,7 @@ bool guidance_flip_run(void)
       struct ThrustSetpoint flip_thrust = th_sp_from_thrust_i(FINAL_THRUST_LEVEL, THRUST_AXIS_Z);
       stabilization_attitude_run(autopilot_in_flight(), &flip_sp, &flip_thrust, stabilization.cmd);
 
+      /* Hold recovery for a fixed time before exiting. */
       if ((timer - timer_save) > BFP_OF_REAL(0.5, 12)) {
         flip_state++;
       }
@@ -176,7 +179,6 @@ bool guidance_flip_run(void)
       autopilot_mode_auto2 = autopilot_mode_old;
       autopilot_set_mode(autopilot_mode_old);
       nav_set_heading_rad(ANGLE_FLOAT_OF_BFP(heading_save));
-      flip_rollout = false;
       flip_running = false;
       flip_finished_flag = true;
       flip_counter = 0;

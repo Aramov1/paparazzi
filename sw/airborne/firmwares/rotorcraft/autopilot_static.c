@@ -48,6 +48,12 @@
 #include "firmwares/rotorcraft/autopilot_guided.h"
 
 #include "generated/settings.h"
+#include "generated/modules.h"
+
+// verify if the bebop flipping module is used
+#ifdef MODULE_FLIP_BEBOP_ID
+#include "modules/flip_bebop/guidance_flip.h"
+#endif
 
 #if USE_GPS
 #include "modules/gps/gps.h"
@@ -176,6 +182,18 @@ void autopilot_static_periodic(void)
       SetCommands(commands_failsafe);
       break;
     default:
+#ifdef MODULE_FLIP_BEBOP_ID
+      /*
+       * if the bebop flipping module is being used, when in default autopilot mode, if flipping button is clicked in
+       * GCS, run commands for guided flip (from guidance_flip.c module) and send those commands to the motors with
+       * SetRotorcraftCommands(...).
+       */
+      if (guidance_flip_active()) {
+        guidance_flip_run();
+        SetRotorcraftCommands(stabilization.cmd, autopilot.in_flight, autopilot.motors_on);
+        break;
+      }
+#endif
       thrust_sp = guidance_v_run(autopilot_in_flight());
       if (guidance_h.mode != GUIDANCE_H_MODE_NONE) {
         stab_sp = guidance_h_run(autopilot_in_flight());

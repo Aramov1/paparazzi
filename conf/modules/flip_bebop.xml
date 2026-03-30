@@ -3,7 +3,7 @@
 <module name="flip_bebop">
     <doc>
         <description>
-            This is a module to perform a flip.
+            This is a module to perform a rolling flip, tuned to the Parrot Bebop drone.
         </description>
     </doc>
     <header>

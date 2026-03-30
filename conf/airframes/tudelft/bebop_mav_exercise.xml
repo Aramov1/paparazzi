@@ -80,6 +80,9 @@
     <!-- Gate detection and navigation FSM -->
     <module name="gate_navigator"/>
 
+    <!-- Flipping functionality -->
+    <module name="flip_bebop"/>
+
     <!-- Streaming -->
     <module name="video_rtp_stream">
       <define name="VIEWVIDEO_CAMERA" value="front_camera"/>

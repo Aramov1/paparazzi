@@ -139,6 +139,12 @@
       <stay wp="RETREAT"/>
     </block>
 
+    <block name="FLIP">
+      <call_once fun="guidance_flip_enter()"/>
+      <while cond="!guidance_flip_finished()"/>
+      <exception cond="guidance_flip_finished()" deroute="Standby"/>
+    </block>
+
     <block key="e" name="Emergency Landing">
       <exception cond="!nav_is_in_flight()" deroute="KILL"/>
       <exception cond="0.10 @GT GetPosAlt()" deroute="KILL"/>
